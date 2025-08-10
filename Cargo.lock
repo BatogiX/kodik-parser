@@ -597,7 +597,7 @@ dependencies = [
 
 [[package]]
 name = "kodik-parser"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "regex",
  "reqwest",
