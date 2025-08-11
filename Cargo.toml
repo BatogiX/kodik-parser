@@ -1,12 +1,13 @@
 [package]
 name = "kodik-parser"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2024"
 
 [dependencies]
-regex = "1.11.1"
-reqwest = "0.12.22"
-ua_generator = "0.5.20"
+base64 = "0.22.1"
+regex = { version = "1.11.1" }
+reqwest = { version = "0.12.22", default-features = false }
+ua_generator = { version = "0.5.20", default-features = false }
 
 [dev-dependencies]
-tokio = { version = "1.47.1", features = ["macros"] }
+tokio = { version = "1.47.1", default-features = false, features = ["macros"] }
