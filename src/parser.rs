@@ -1,28 +1,57 @@
-use std::{
-    collections::HashMap,
-    sync::{LazyLock, RwLock},
-};
+use std::sync::{LazyLock, RwLock};
 
-use crate::scraper;
+use crate::{
+    decoder,
+    scraper::{self, PlayerResponse},
+};
 use base64::{Engine as _, engine::general_purpose};
 use regex::Regex;
 use reqwest::Client;
+use serde::Serialize;
 
 static API_ENDPOINT: RwLock<String> = RwLock::new(String::new());
 
-pub async fn parse(client: &Client, url: &str) -> Result<(), Box<dyn std::error::Error>> {
+#[derive(Debug, Serialize, PartialEq)]
+pub(crate) struct VideoInfo<'a> {
+    #[serde(rename = "type")]
+    video_type: &'a str,
+    hash: &'a str,
+    id: &'a str,
+    bad_user: &'static str,
+    info: &'static str,
+    cdn_is_working: &'static str,
+}
+
+impl<'a> VideoInfo<'a> {
+    pub const fn new(video_type: &'a str, hash: &'a str, id: &'a str) -> Self {
+        Self {
+            video_type,
+            hash,
+            id,
+            bad_user: "True",
+            info: "{}",
+            cdn_is_working: "True",
+        }
+    }
+}
+
+pub async fn parse(client: &Client, url: &str) -> Result<PlayerResponse, Box<dyn std::error::Error>> {
     let domain = get_domain(url)?;
 
-    let response_text = scraper::get_with_fake_agent(client, url).await?;
+    let response_text = scraper::get(client, url).await?;
     let video_info = extract_video_info(&response_text)?;
 
-    if API_ENDPOINT.read().unwrap().is_empty() {
+    if API_ENDPOINT.read()?.is_empty() {
         let player_url = extract_player_url(domain, &response_text)?;
-        let player_response_text = scraper::get_with_fake_agent(client, &player_url).await?;
-        *API_ENDPOINT.write().unwrap() = get_api_endpoint(&player_response_text)?;
+        let player_response_text = scraper::get(client, &player_url).await?;
+        *API_ENDPOINT.write()? = get_api_endpoint(&player_response_text)?;
     }
 
-    Ok(())
+    let mut player_response = scraper::post(client, url, video_info).await?;
+
+    decoder::decode_links(&mut player_response)?;
+
+    Ok(player_response)
 }
 
 fn get_domain(url: &str) -> Result<&str, Box<dyn std::error::Error>> {
@@ -35,40 +64,33 @@ fn get_domain(url: &str) -> Result<&str, Box<dyn std::error::Error>> {
     Ok(domain.as_str())
 }
 
-fn extract_video_info(response_text: &str) -> Result<HashMap<&'static str, &str>, Box<dyn std::error::Error>> {
+fn extract_video_info(response_text: &str) -> Result<VideoInfo, Box<dyn std::error::Error>> {
     static TYPE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"videoInfo\.type = '(.*?)';").unwrap());
     static HASH_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"videoInfo\.hash = '(.*?)';").unwrap());
     static ID_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"videoInfo\.id = '(.*?)';").unwrap());
 
-    let video_info_type = TYPE_REGEX.captures(response_text).ok_or("videoInfo.type not found")?;
-    let video_info_hash = HASH_REGEX.captures(response_text).ok_or("videoInfo.hash not found")?;
-    let video_info_id = ID_REGEX.captures(response_text).ok_or("videoInfo.id not found")?;
-
-    let mut video_info: HashMap<&'static str, &str> = HashMap::with_capacity(6);
-    video_info.insert("type", video_info_type.get(1).unwrap().as_str());
-    video_info.insert("hash", video_info_hash.get(1).unwrap().as_str());
-    video_info.insert("id", video_info_id.get(1).unwrap().as_str());
-    video_info.insert("bad_user", "True");
-    video_info.insert("info", "{}");
-    video_info.insert("cdn_is_working", "True");
-
-    Ok(video_info)
-}
-
-fn get_api_endpoint(player_response_text: &str) -> Result<String, Box<dyn std::error::Error>> {
-    static ENDPOINT_REGEX: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r#"\$\.ajax\([^>]+,url:\s*atob\(["\']([\w=]+)["\']\)"#).unwrap());
-
-    let encoded_api_endpoint = ENDPOINT_REGEX
-        .captures(&player_response_text)
-        .ok_or("There is no api endpoint in player response")?
+    let video_type = TYPE_REGEX
+        .captures(response_text)
+        .ok_or("videoInfo.type not found")?
         .get(1)
         .unwrap()
         .as_str();
 
-    let api_endpoint = general_purpose::STANDARD.decode(encoded_api_endpoint)?;
+    let hash = HASH_REGEX
+        .captures(response_text)
+        .ok_or("videoInfo.hash not found")?
+        .get(1)
+        .unwrap()
+        .as_str();
 
-    Ok(String::from_utf8(api_endpoint)?)
+    let id = ID_REGEX
+        .captures(response_text)
+        .ok_or("videoInfo.id not found")?
+        .get(1)
+        .unwrap()
+        .as_str();
+
+    Ok(VideoInfo::new(video_type, hash, id))
 }
 
 fn extract_player_url(domain: &str, response_text: &str) -> Result<String, Box<dyn std::error::Error>> {
@@ -86,6 +108,20 @@ fn extract_player_url(domain: &str, response_text: &str) -> Result<String, Box<d
     Ok(format!("https://{domain}/{player_path}"))
 }
 
+fn get_api_endpoint(player_response_text: &str) -> Result<String, Box<dyn std::error::Error>> {
+    static ENDPOINT_REGEX: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r#"\$\.ajax\([^>]+,url:\s*atob\(["\']([\w=]+)["\']\)"#).unwrap());
+
+    let encoded_api_endpoint = ENDPOINT_REGEX
+        .captures(player_response_text)
+        .ok_or("There is no api endpoint in player response")?
+        .get(1)
+        .unwrap()
+        .as_str();
+
+    Ok(decoder::b64(encoded_api_endpoint)?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -101,13 +137,7 @@ mod tests {
 
     #[test]
     fn test_extract_video_info() {
-        let mut expected_video_info = HashMap::with_capacity(6);
-        expected_video_info.insert("type", "seria");
-        expected_video_info.insert("hash", "6a2e103e9acf9829c6cba7e69555afb1");
-        expected_video_info.insert("id", "1484069");
-        expected_video_info.insert("bad_user", "True");
-        expected_video_info.insert("info", "{}");
-        expected_video_info.insert("cdn_is_working", "True");
+        let expected_video_info = VideoInfo::new("seria", "6a2e103e9acf9829c6cba7e69555afb1", "1484069");
 
         let response_text = "
   var videoInfo = {};
@@ -149,5 +179,20 @@ mod tests {
     fn test_get_api_endpoint() {
         let player_response_text = r#"==t.secret&&(e.secret=t.secret),userInfo&&"object"===_typeof(userInfo.info)&&(e.info=JSON.stringify(userInfo.info)),void 0!==window.advertTest&&(e.a_test=!0),!0===t.isUpdate&&(e.isUpdate=!0),$.ajax({type:"POST",url:atob("L2Z0b3I="),"#;
         assert_eq!("/ftor", get_api_endpoint(player_response_text).unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_parse() {
+        let client = Client::new();
+        let url = "https://kodik.info/seria/1484069/6a2e103e9acf9829c6cba7e69555afb1/720p";
+        let response = parse(&client, url).await;
+        match response {
+            Ok(response_ok) => {
+                println!("{response_ok:#?}");
+            }
+            Err(err) => {
+                panic!("{err}");
+            }
+        }
     }
 }
