@@ -27,7 +27,7 @@ async fn main() {
     let url = "https://kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
     let player_response = async_impl::parse(&client, url).await.unwrap();
 
-    let link_720 = player_response.links.quality_720.first().unwrap().src;
+    let link_720 = player_response.links().quality_720().first().unwrap().src();
     println!("Link with 720p quality is: {}", link_720);
 }
 ```
@@ -48,7 +48,7 @@ fn main() {
     let url = "https://kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
     let player_response = blocking::parse(&agent, url).unwrap();
 
-    let link_720 = player_response.links.quality_720.first().unwrap().src;
+    let link_720 = player_response.links().quality_720().first().unwrap().src();
     println!("Link with 720p quality is: {}", link_720);
 }
 ```
