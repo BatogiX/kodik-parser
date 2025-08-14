@@ -1,6 +1,12 @@
-pub mod parser;
+mod decoder;
+mod parser;
 mod scraper;
 mod util;
-mod decoder;
 
-pub use parser::parse;
+pub use parser::VideoInfo;
+pub use scraper::{Link, Links, PlayerResponse};
+
+#[cfg(feature = "async-impl")]
+pub mod async_impl;
+#[cfg(feature = "blocking")]
+pub mod blocking;

@@ -1,18 +1,12 @@
 use std::sync::{LazyLock, RwLock};
 
-use crate::{
-    decoder,
-    scraper::{self, PlayerResponse},
-};
-use base64::{Engine as _, engine::general_purpose};
+use crate::decoder;
 use regex::Regex;
-use reqwest::Client;
 use serde::Serialize;
+pub static VIDEO_INFO_ENDPOINT: RwLock<String> = RwLock::new(String::new());
 
-static API_ENDPOINT: RwLock<String> = RwLock::new(String::new());
-
-#[derive(Debug, Serialize, PartialEq)]
-pub(crate) struct VideoInfo<'a> {
+#[derive(Debug, Serialize, PartialEq, Eq)]
+pub struct VideoInfo<'a> {
     #[serde(rename = "type")]
     video_type: &'a str,
     hash: &'a str,
@@ -23,7 +17,7 @@ pub(crate) struct VideoInfo<'a> {
 }
 
 impl<'a> VideoInfo<'a> {
-    pub const fn new(video_type: &'a str, hash: &'a str, id: &'a str) -> Self {
+    pub(crate) const fn new(video_type: &'a str, hash: &'a str, id: &'a str) -> Self {
         Self {
             video_type,
             hash,
@@ -35,26 +29,24 @@ impl<'a> VideoInfo<'a> {
     }
 }
 
-pub async fn parse(client: &Client, url: &str) -> Result<PlayerResponse, Box<dyn std::error::Error>> {
-    let domain = get_domain(url)?;
+impl<'a> IntoIterator for &'a VideoInfo<'a> {
+    type Item = (&'a str, &'a str);
+    type IntoIter = std::array::IntoIter<(&'a str, &'a str), 6>;
 
-    let response_text = scraper::get(client, url).await?;
-    let video_info = extract_video_info(&response_text)?;
-
-    if API_ENDPOINT.read()?.is_empty() {
-        let player_url = extract_player_url(domain, &response_text)?;
-        let player_response_text = scraper::get(client, &player_url).await?;
-        *API_ENDPOINT.write()? = get_api_endpoint(&player_response_text)?;
+    fn into_iter(self) -> Self::IntoIter {
+        [
+            ("type", self.video_type),
+            ("hash", self.hash),
+            ("id", self.id),
+            ("bad_user", self.bad_user),
+            ("info", self.info),
+            ("cdn_is_working", self.cdn_is_working),
+        ]
+        .into_iter()
     }
-
-    let mut player_response = scraper::post(client, url, video_info).await?;
-
-    decoder::decode_links(&mut player_response)?;
-
-    Ok(player_response)
 }
 
-fn get_domain(url: &str) -> Result<&str, Box<dyn std::error::Error>> {
+pub fn get_domain(url: &str) -> Result<&str, Box<dyn std::error::Error>> {
     static DOMAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]").unwrap()
     });
@@ -64,7 +56,7 @@ fn get_domain(url: &str) -> Result<&str, Box<dyn std::error::Error>> {
     Ok(domain.as_str())
 }
 
-fn extract_video_info(response_text: &str) -> Result<VideoInfo, Box<dyn std::error::Error>> {
+pub fn extract_video_info(response_text: &'_ str) -> Result<VideoInfo<'_>, Box<dyn std::error::Error>> {
     static TYPE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"videoInfo\.type = '(.*?)';").unwrap());
     static HASH_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"videoInfo\.hash = '(.*?)';").unwrap());
     static ID_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"videoInfo\.id = '(.*?)';").unwrap());
@@ -93,7 +85,7 @@ fn extract_video_info(response_text: &str) -> Result<VideoInfo, Box<dyn std::err
     Ok(VideoInfo::new(video_type, hash, id))
 }
 
-fn extract_player_url(domain: &str, response_text: &str) -> Result<String, Box<dyn std::error::Error>> {
+pub fn extract_player_url(domain: &str, response_text: &str) -> Result<String, Box<dyn std::error::Error>> {
     static PLAYER_PATH_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r#"<script\s*type="text/javascript"\s*src="/(assets/js/app\.player_single[^"]*)""#).unwrap()
     });
@@ -108,7 +100,7 @@ fn extract_player_url(domain: &str, response_text: &str) -> Result<String, Box<d
     Ok(format!("https://{domain}/{player_path}"))
 }
 
-fn get_api_endpoint(player_response_text: &str) -> Result<String, Box<dyn std::error::Error>> {
+pub fn get_api_endpoint(player_response_text: &str) -> Result<String, Box<dyn std::error::Error>> {
     static ENDPOINT_REGEX: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r#"\$\.ajax\([^>]+,url:\s*atob\(["\']([\w=]+)["\']\)"#).unwrap());
 
@@ -119,7 +111,7 @@ fn get_api_endpoint(player_response_text: &str) -> Result<String, Box<dyn std::e
         .unwrap()
         .as_str();
 
-    Ok(decoder::b64(encoded_api_endpoint)?)
+    decoder::b64(encoded_api_endpoint)
 }
 
 #[cfg(test)]
@@ -179,20 +171,5 @@ mod tests {
     fn test_get_api_endpoint() {
         let player_response_text = r#"==t.secret&&(e.secret=t.secret),userInfo&&"object"===_typeof(userInfo.info)&&(e.info=JSON.stringify(userInfo.info)),void 0!==window.advertTest&&(e.a_test=!0),!0===t.isUpdate&&(e.isUpdate=!0),$.ajax({type:"POST",url:atob("L2Z0b3I="),"#;
         assert_eq!("/ftor", get_api_endpoint(player_response_text).unwrap());
-    }
-
-    #[tokio::test]
-    async fn test_parse() {
-        let client = Client::new();
-        let url = "https://kodik.info/seria/1484069/6a2e103e9acf9829c6cba7e69555afb1/720p";
-        let response = parse(&client, url).await;
-        match response {
-            Ok(response_ok) => {
-                println!("{response_ok:#?}");
-            }
-            Err(err) => {
-                panic!("{err}");
-            }
-        }
     }
 }

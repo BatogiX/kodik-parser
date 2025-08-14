@@ -1,19 +1,41 @@
 [package]
 name = "kodik-parser"
-version = "0.4.0"
+version = "1.0.0"
 edition = "2024"
+description = "A Rust library for getting direct links to files from Kodik."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/BatogiX/kodik-parser"
+homepage = "https://github.com/BatogiX/kodik-parser"
+documentation = "https://docs.rs/kodik-parser"
+keywords = ["rust", "library", "kodik", "parser"]
+categories = ["api-bindings"]
+readme = "README.md"
+
+[features]
+blocking = ["dep:ureq"]
+async-impl = ["dep:reqwest"]
 
 [dependencies]
 base64 = "0.22.1"
-regex = { version = "1.11.1" }
-reqwest = { version = "0.12.22", default-features = false, features = [
-    "json",
-    "default-tls",
-] }
+regex = "1.11.1"
+
 serde = { version = "1.0.219", default-features = false, features = [
     "serde_derive",
 ] }
-ua_generator = { version = "0.5.20", default-features = false }
+
+ua_generator = { version = "0.5.21", default-features = false }
+reqwest = { version = "0.12.23", default-features = false, optional = true, features = [
+    "json",
+    "rustls-tls",
+] }
+
+ureq = { version = "3.0.12", default-features = false, optional = true, features = [
+    "json",
+    "rustls",
+] }
 
 [dev-dependencies]
-tokio = { version = "1.47.1", default-features = false, features = ["macros"] }
+tokio = { version = "1.47.1", default-features = false, features = [
+    "macros",
+    "rt-multi-thread",
+] }
