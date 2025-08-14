@@ -10,27 +10,33 @@ pub struct PlayerResponse {
 }
 
 impl PlayerResponse {
+    #[must_use]
     pub fn advert_script(&self) -> &str {
         &self.advert_script
     }
 
+    #[must_use]
     pub fn domain(&self) -> &str {
         &self.domain
     }
 
+    #[must_use]
     pub const fn default(&self) -> u32 {
         self.default
     }
 
+    #[must_use]
     pub const fn links(&self) -> &Links {
         &self.links
     }
 
+    #[must_use]
     pub fn ip(&self) -> &str {
         &self.ip
     }
 }
 
+#[allow(clippy::struct_field_names)]
 #[derive(Debug, Deserialize)]
 pub struct Links {
     #[serde(rename = "360")]
@@ -42,15 +48,18 @@ pub struct Links {
 }
 
 impl Links {
-    fn quality_360(&self) -> &[Link] {
+    #[must_use]
+    pub fn quality_360(&self) -> &[Link] {
         &self.quality_360
     }
 
-    fn quality_480(&self) -> &[Link] {
+    #[must_use]
+    pub fn quality_480(&self) -> &[Link] {
         &self.quality_480
     }
 
-    fn quality_720(&self) -> &[Link] {
+    #[must_use]
+    pub fn quality_720(&self) -> &[Link] {
         &self.quality_720
     }
 }
@@ -63,11 +72,13 @@ pub struct Link {
 }
 
 impl Link {
-    fn src(&self) -> &str {
+    #[must_use]
+    pub fn src(&self) -> &str {
         &self.src
     }
 
-    fn mime_type(&self) -> &str {
+    #[must_use]
+    pub fn mime_type(&self) -> &str {
         &self.mime_type
     }
 }

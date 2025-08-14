@@ -27,13 +27,8 @@ impl<'a> VideoInfo<'a> {
             cdn_is_working: "True",
         }
     }
-}
 
-impl<'a> IntoIterator for &'a VideoInfo<'a> {
-    type Item = (&'a str, &'a str);
-    type IntoIter = std::array::IntoIter<(&'a str, &'a str), 6>;
-
-    fn into_iter(self) -> Self::IntoIter {
+    fn iter(&'a self) -> std::array::IntoIter<(&'a str, &'a str), 6> {
         [
             ("type", self.video_type),
             ("hash", self.hash),
@@ -43,6 +38,15 @@ impl<'a> IntoIterator for &'a VideoInfo<'a> {
             ("cdn_is_working", self.cdn_is_working),
         ]
         .into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a VideoInfo<'a> {
+    type Item = (&'a str, &'a str);
+    type IntoIter = std::array::IntoIter<Self::Item, 6>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 

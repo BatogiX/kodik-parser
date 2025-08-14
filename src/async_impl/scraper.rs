@@ -1,6 +1,6 @@
 use reqwest::{
     Client,
-    header::{ACCEPT, HeaderMap, HeaderName, ORIGIN, REFERER, USER_AGENT},
+    header::{ACCEPT, HeaderName, ORIGIN, REFERER, USER_AGENT},
 };
 
 use crate::{parser::VideoInfo, scraper::PlayerResponse, util};
@@ -19,22 +19,13 @@ pub async fn post(
     api_endpoint: &str,
     video_info: &VideoInfo<'_>,
 ) -> Result<PlayerResponse, reqwest::Error> {
-    let mut headers = HeaderMap::with_capacity(5);
-    headers.insert(ORIGIN, format!("https://{domain}").parse().unwrap());
-    headers.insert(
-        ACCEPT,
-        "application/json, text/javascript, */*; q=0.01".parse().unwrap(),
-    );
-    headers.insert(REFERER, format!("https://{domain}").parse().unwrap());
-    headers.insert(USER_AGENT, util::spoof_random_ua().parse().unwrap());
-    headers.insert(
-        HeaderName::from_static("x-requested-with"),
-        "XMLHttpRequest".parse().unwrap(),
-    );
-
     let response_text = client
         .post(format!("https://{domain}{api_endpoint}"))
-        .headers(headers)
+        .header(ORIGIN, format!("https://{domain}"))
+        .header(ACCEPT, "application/json, text/javascript, */*; q=0.01")
+        .header(REFERER, format!("https://{domain}"))
+        .header(USER_AGENT, util::spoof_random_ua())
+        .header(HeaderName::from_static("x-requested-with"), "XMLHttpRequest")
         .form(&video_info)
         .send()
         .await?
