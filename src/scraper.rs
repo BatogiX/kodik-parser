@@ -92,7 +92,7 @@ mod tests {
                         "type":"application/x-mpegURL"
                     }
                 ]
-            },
+            }
         }"#;
 
         let _: KodikResponse = serde_json::from_str(json).unwrap();
