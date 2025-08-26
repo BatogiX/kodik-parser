@@ -6,7 +6,7 @@
     clippy::cargo,
     clippy::nursery,
     missing_docs,
-    missing_crate_level_docs,
+    rustdoc::missing_crate_level_docs,
     unused_imports
 )]
 
