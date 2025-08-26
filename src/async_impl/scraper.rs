@@ -3,7 +3,7 @@ use reqwest::{
     header::{ACCEPT, HeaderName, ORIGIN, REFERER, USER_AGENT},
 };
 
-use crate::{parser::VideoInfo, scraper::PlayerResponse, util};
+use crate::{parser::VideoInfo, scraper::KodikResponse, util};
 
 pub async fn get(client: &Client, url: &str) -> Result<String, reqwest::Error> {
     let agent = util::spoof_random_ua();
@@ -18,8 +18,8 @@ pub async fn post(
     domain: &str,
     api_endpoint: &str,
     video_info: &VideoInfo<'_>,
-) -> Result<PlayerResponse, reqwest::Error> {
-    let response_text = client
+) -> Result<KodikResponse, reqwest::Error> {
+    let kodik_response = client
         .post(format!("https://{domain}{api_endpoint}"))
         .header(ORIGIN, format!("https://{domain}"))
         .header(ACCEPT, "application/json, text/javascript, */*; q=0.01")
@@ -32,7 +32,7 @@ pub async fn post(
         .json()
         .await?;
 
-    Ok(response_text)
+    Ok(kodik_response)
 }
 
 #[cfg(test)]
@@ -53,7 +53,7 @@ mod tests {
         let domain = "kodik.info";
         let api_endpoint = "/ftor";
         let video_info = VideoInfo::new("video", "060cab655974d46835b3f4405807acc2", "91873");
-        let response_text = post(&client, domain, api_endpoint, &video_info).await.unwrap();
-        println!("{response_text:#?}");
+        let kodik_response = post(&client, domain, api_endpoint, &video_info).await.unwrap();
+        println!("{kodik_response:#?}");
     }
 }

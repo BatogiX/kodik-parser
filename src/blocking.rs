@@ -1,3 +1,4 @@
+//! Blocking implementation module
 mod parser;
 
 mod scraper;

@@ -2,17 +2,17 @@ use std::sync::atomic::{AtomicU8, Ordering};
 
 use base64::{Engine as _, engine::general_purpose};
 
-use crate::scraper::PlayerResponse;
+use crate::scraper::KodikResponse;
 
 static SHIFT: AtomicU8 = AtomicU8::new(0);
 
-pub fn decode_links(player_response: &mut PlayerResponse) -> Result<(), Box<dyn std::error::Error>> {
-    for link_360 in &mut player_response.links.quality_360 {
+pub fn decode_links(kodik_response: &mut KodikResponse) -> Result<(), Box<dyn std::error::Error>> {
+    for link_360 in &mut kodik_response.links.quality_360 {
         link_360.src = decode_link(&link_360.src)?;
     }
 
-    for link_480 in &mut player_response.links.quality_480 {
-        let link_360 = player_response.links.quality_360.first();
+    for link_480 in &mut kodik_response.links.quality_480 {
+        let link_360 = kodik_response.links.quality_360.first();
         match link_360 {
             Some(link_360) => {
                 link_480.src = link_360.src.replace("/360.mp4", "/480.mp4");
@@ -23,8 +23,8 @@ pub fn decode_links(player_response: &mut PlayerResponse) -> Result<(), Box<dyn 
         }
     }
 
-    for link_720 in &mut player_response.links.quality_720 {
-        let link_360 = player_response.links.quality_360.first();
+    for link_720 in &mut kodik_response.links.quality_720 {
+        let link_360 = kodik_response.links.quality_360.first();
         match link_360 {
             Some(link_360) => {
                 link_720.src = link_360.src.replace("/360.mp4", "/720.mp4");
@@ -134,45 +134,41 @@ mod tests {
 
     #[test]
     fn test_decode_links() {
-        let mut player_response = PlayerResponse {
-    advert_script: String::new(),
-    domain: "kodik.info".to_owned(),
-    default: 360,
+        let mut kodik_response = KodikResponse {
     links: Links {
         quality_360: vec![
             Link {
                 src: "iPZ0kPU6Tg9eVBGci29siEaciE5ujg9hT20dBPs5iuRPWBNiYhDgGrRAkON5UFxsZht5EDlsjMfbBvHqChsfGhREmEZGYvVqUsHzG3s4ms9Ci3tHjDxwB1UeVDtyGhVUDNM0EtZRlM9PEuxHChI1EslAjDtCHhDVmtRwB0ZDThM1GrQgVBtsWBs1GhHrVEC1V2Y0VuVuVrGeVBGeVrHpUBM2UuG3UhZqVBJrGBZuGhM5UrHpGBHuUro0V2UeUBI6UrIgVBI4UBYgUA8hVrIcjFI0WupakhxbGE5xHuDhlK5bU3C4".to_owned(),
-                mime_type: "application/x-mpegURL".to_owned(),
+                r#type: "application/x-mpegURL".to_owned(),
             },
         ],
         quality_480: vec![
             Link {
                 src: "iPZ0kPU6Tg9eUhYci29siEaciE5ujg9hT20dBPs5iuRPWBNiYhDgGrRAkON5UFxsZht5EDlsjMfbBvHqChsfGhREmEZGYvVqUsHzG3s4ms9Ci3tHjDxwB1UeVDtyGhVUDNM0EtZRlM9PEuxHChI1EslAjDtCHhDVmtRwB0ZDThM1GrQgVBtsWBs1GhHrVEC1V2Y0VuVuVrGeVBGeVrHpUBM2UuG3UhZqVBJrGBZuGhM5UrHpGBHuUro0V2UeUBI6UrIgVBI4UBYgUA80WLIcjFI0WupakhxbGE5xHuDhlK5bU3C4".to_owned(),
-                mime_type: "application/x-mpegURL".to_owned(),
+                r#type: "application/x-mpegURL".to_owned(),
             },
         ],
         quality_720: vec![
             Link {
                 src: "iPZ0kPU6Tg9eVBGci29siEaciE5ujg9hT20dBPs5iuRPWBNiYhDgGrRAkON5UFxsZht5EDlsjMfbBvHqChsfGhREmEZGYvVqUsHzG3s4ms9Ci3tHjDxwB1UeVDtyGhVUDNM0EtZRlM9PEuxHChI1EslAjDtCHhDVmtRwB0ZDThM1GrQgVBtsWBs1GhHrVEC1V2Y0VuVuVrGeVBGeVrHpUBM2UuG3UhZqVBJrGBZuGhM5UrHpGBHuUro0V2UeUBI6UrIgVBI4UBYgUA80WLIcjFI0WupakhxbGE5xHuDhlK5bU3C4".to_owned(),
-                mime_type: "application/x-mpegURL".to_owned(),
+                r#type: "application/x-mpegURL".to_owned(),
             },
         ],
     },
-    ip: "127.0.0.1".to_owned(),
 };
-        decode_links(&mut player_response).unwrap();
+        decode_links(&mut kodik_response).unwrap();
 
         assert_eq!(
             "https://p56.kodik.info/s/m/Ly9jbG91ZC5rb2Rpay1zdG9yYWdlLmNvbS91c2VydXBsb2Fkcy8zOTkyYmZhOS05Yjc3LTQ4ZTItOGZjYS05ZGRmYTg5MzRhODU/15b2259d995c6c5e57d46cf66056066a1162f734b50ca4fc1926aa6f2847c010:2025081421/360.mp4:hls:manifest.m3u8",
-            player_response.links.quality_360.first().unwrap().src
+            kodik_response.links.quality_360.first().unwrap().src
         );
         assert_eq!(
             "https://p56.kodik.info/s/m/Ly9jbG91ZC5rb2Rpay1zdG9yYWdlLmNvbS91c2VydXBsb2Fkcy8zOTkyYmZhOS05Yjc3LTQ4ZTItOGZjYS05ZGRmYTg5MzRhODU/15b2259d995c6c5e57d46cf66056066a1162f734b50ca4fc1926aa6f2847c010:2025081421/480.mp4:hls:manifest.m3u8",
-            player_response.links.quality_480.first().unwrap().src
+            kodik_response.links.quality_480.first().unwrap().src
         );
         assert_eq!(
             "https://p56.kodik.info/s/m/Ly9jbG91ZC5rb2Rpay1zdG9yYWdlLmNvbS91c2VydXBsb2Fkcy8zOTkyYmZhOS05Yjc3LTQ4ZTItOGZjYS05ZGRmYTg5MzRhODU/15b2259d995c6c5e57d46cf66056066a1162f734b50ca4fc1926aa6f2847c010:2025081421/720.mp4:hls:manifest.m3u8",
-            player_response.links.quality_720.first().unwrap().src
+            kodik_response.links.quality_720.first().unwrap().src
         );
     }
 }

@@ -1,84 +1,100 @@
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-pub struct PlayerResponse {
-    pub(crate) advert_script: String,
-    pub(crate) domain: String,
-    pub(crate) default: u32,
-    pub(crate) links: Links,
-    pub(crate) ip: String,
+/// Response structure for player data containing video links
+pub struct KodikResponse {
+    /// Available video links organized by quality
+    pub links: Links,
 }
 
-impl PlayerResponse {
-    #[must_use]
-    pub fn advert_script(&self) -> &str {
-        &self.advert_script
-    }
-
-    #[must_use]
-    pub fn domain(&self) -> &str {
-        &self.domain
-    }
-
-    #[must_use]
-    pub const fn default(&self) -> u32 {
-        self.default
-    }
-
-    #[must_use]
-    pub const fn links(&self) -> &Links {
-        &self.links
-    }
-
-    #[must_use]
-    pub fn ip(&self) -> &str {
-        &self.ip
-    }
-}
-
-#[allow(clippy::struct_field_names)]
 #[derive(Debug, Deserialize)]
+/// Container for video links organized by different quality levels
 pub struct Links {
+    /// Video links for 360p quality
     #[serde(rename = "360")]
-    pub(crate) quality_360: Vec<Link>,
+    pub quality_360: Vec<Link>,
+    /// Video links for 480p quality
     #[serde(rename = "480")]
-    pub(crate) quality_480: Vec<Link>,
+    pub quality_480: Vec<Link>,
+    /// Video links for 720p quality
     #[serde(rename = "720")]
-    pub(crate) quality_720: Vec<Link>,
-}
-
-impl Links {
-    #[must_use]
-    pub fn quality_360(&self) -> &[Link] {
-        &self.quality_360
-    }
-
-    #[must_use]
-    pub fn quality_480(&self) -> &[Link] {
-        &self.quality_480
-    }
-
-    #[must_use]
-    pub fn quality_720(&self) -> &[Link] {
-        &self.quality_720
-    }
+    pub quality_720: Vec<Link>,
 }
 
 #[derive(Debug, Deserialize)]
+/// Individual video link with source URL and content type
 pub struct Link {
-    pub(crate) src: String,
-    #[serde(rename = "type")]
-    pub(crate) mime_type: String,
+    /// Source URL of the video stream
+    pub src: String,
+    /// MIME type of the video content
+    pub r#type: String,
 }
 
-impl Link {
-    #[must_use]
-    pub fn src(&self) -> &str {
-        &self.src
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_link_deserialization() {
+        let json = r#"{
+            "src":"iPZ0kPU6Tg9eVBGci29siEaciE5ujg9hT20dBPs5iuRPWBNiYhDgGrRAkON5UFxsZht5EDlsjMfbBvHqChsfGhREmEZGYvVqUsHzG3s4ms9Ci3tHjDxwB1UeVDtyGhVUDNM0EtZRlM9PEuxHChI1EslAjDtCHhDVmtRwB0ZDThM1GrQgVBtsWBs1GhHrVEC1V2Y0VuVuVrGeVBGeVrHpUBM2UuG3UhZqVBJrGBZuGhM5UrHpGBHuUro0V2UeUBI6UrIgVBI4UBYgUA8hVrIcjFI0WupakhxbGE5xHuDhlK5bU3C4",
+            "type":"application/x-mpegURL"
+        }"#;
+
+        let _: Link = serde_json::from_str(json).unwrap();
     }
 
-    #[must_use]
-    pub fn mime_type(&self) -> &str {
-        &self.mime_type
+    #[test]
+    fn test_links_deserialization() {
+        let json = r#"{
+            "360":[
+                {
+                    "src":"iPZ0kPU6Tg9eUhYci29siEaciE5ujg9hT20dBPs5iuRPWBNiYhDgGrRAkON5UFxsZht5EDlsjMfbBvHqChsfGhREmEZGYvVqUsHzG3s4ms9Ci3tHjDxwB1UeVDtyGhVUDNM0EtZRlM9PEuxHChI1EslAjDtCHhDVmtRwB0ZDT2Q3VBJpVrU4UBC3HrprU2RpWEVuVhlrHBs3UhHsVBI5UORuVBVpGrptHBlqV2QgVLpuGuY2GhHqUOVtVBG0WLs6UrIgVBI4UrGeUg8hVrIcjFI0WupakhxbGE5xHuDhlK5bU3C4",
+                    "type":"application/x-mpegURL"
+                }
+            ],
+            "480":[
+                {
+                    "src":"iPZ0kPU6Tg9eUhYci29siEaciE5ujg9hT20dBPs5iuRPWBNiYhDgGrRAkON5UFxsZht5EDlsjMfbBvHqChsfGhREmEZGYvVqUsHzG3s4ms9Ci3tHjDxwB1UeVDtyGhVUDNM0EtZRlM9PEuxHChI1EslAjDtCHhDVmtRwB0ZDT2Q3VBJpVrU4UBC3HrprU2RpWEVuVhlrHBs3UhHsVBI5UORuVBVpGrptHBlqV2QgVLpuGuY2GhHqUOVtVBG0WLs6UrIgVBI4UrGeUg80WLIcjFI0WupakhxbGE5xHuDhlK5bU3C4",
+                    "type":"application/x-mpegURL"
+                }
+            ],
+            "720":[
+                {
+                    "src":"iPZ0kPU6Tg9eVBGci29siEaciE5ujg9hT20dBPs5iuRPWBNiYhDgGrRAkON5UFxsZht5EDlsjMfbBvHqChsfGhREmEZGYvVqUsHzG3s4ms9Ci3tHjDxwB1UeVDtyGhVUDNM0EtZRlM9PEuxHChI1EslAjDtCHhDVmtRwB0ZDT2Q3VBJpVrU4UBC3HrprU2RpWEVuVhlrHBs3UhHsVBI5UORuVBVpGrptHBlqV2QgVLpuGuY2GhHqUOVtVBG0WLs6UrIgVBI4UrGeUg83UrIcjFI0WupakhxbGE5xHuDhlK5bU3C4",
+                    "type":"application/x-mpegURL"
+                }
+            ]
+        }"#;
+
+        let _: Links = serde_json::from_str(json).unwrap();
+    }
+
+    #[test]
+    fn test_kodik_response_deserialization() {
+        let json = r#"{
+            "links":{
+                "360":[
+                    {
+                        "src":"iPZ0kPU6Tg9eUhYci29siEaciE5ujg9hT20dBPs5iuRPWBNiYhDgGrRAkON5UFxsZht5EDlsjMfbBvHqChsfGhREmEZGYvVqUsHzG3s4ms9Ci3tHjDxwB1UeVDtyGhVUDNM0EtZRlM9PEuxHChI1EslAjDtCHhDVmtRwB0ZDT2Q3VBJpVrU4UBC3HrprU2RpWEVuVhlrHBs3UhHsVBI5UORuVBVpGrptHBlqV2QgVLpuGuY2GhHqUOVtVBG0WLs6UrIgVBI4UrGeUg8hVrIcjFI0WupakhxbGE5xHuDhlK5bU3C4",
+                        "type":"application/x-mpegURL"
+                    }
+                ],
+                "480":[
+                    {
+                        "src":"iPZ0kPU6Tg9eUhYci29siEaciE5ujg9hT20dBPs5iuRPWBNiYhDgGrRAkON5UFxsZht5EDlsjMfbBvHqChsfGhREmEZGYvVqUsHzG3s4ms9Ci3tHjDxwB1UeVDtyGhVUDNM0EtZRlM9PEuxHChI1EslAjDtCHhDVmtRwB0ZDT2Q3VBJpVrU4UBC3HrprU2RpWEVuVhlrHBs3UhHsVBI5UORuVBVpGrptHBlqV2QgVLpuGuY2GhHqUOVtVBG0WLs6UrIgVBI4UrGeUg80WLIcjFI0WupakhxbGE5xHuDhlK5bU3C4",
+                        "type":"application/x-mpegURL"
+                    }
+                ],
+                "720":[
+                    {
+                        "src":"iPZ0kPU6Tg9eVBGci29siEaciE5ujg9hT20dBPs5iuRPWBNiYhDgGrRAkON5UFxsZht5EDlsjMfbBvHqChsfGhREmEZGYvVqUsHzG3s4ms9Ci3tHjDxwB1UeVDtyGhVUDNM0EtZRlM9PEuxHChI1EslAjDtCHhDVmtRwB0ZDT2Q3VBJpVrU4UBC3HrprU2RpWEVuVhlrHBs3UhHsVBI5UORuVBVpGrptHBlqV2QgVLpuGuY2GhHqUOVtVBG0WLs6UrIgVBI4UrGeUg83UrIcjFI0WupakhxbGE5xHuDhlK5bU3C4",
+                        "type":"application/x-mpegURL"
+                    }
+                ]
+            },
+        }"#;
+
+        let _: KodikResponse = serde_json::from_str(json).unwrap();
     }
 }

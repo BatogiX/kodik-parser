@@ -1,14 +1,14 @@
 # kodik-parser
 
-A Rust library for getting direct links to files from Kodik. 
+A Rust library for getting direct links to files from Kodik.
 
 ## Features
 
-- Automatic User-Agent substitution,
+- User-Agent substitution,
 
-- Automatic search and caching of the current API endpoint,
+- Search and caching of the current API endpoint,
 
-- Automatic link decoding.
+- Link decoding.
 
 # Usage
 ## Async-impl
@@ -25,9 +25,9 @@ use kodik_parser::async_impl;
 async fn main() {
     let client = Client::new();
     let url = "https://kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
-    let player_response = async_impl::parse(&client, url).await.unwrap();
+    let kodik_response = async_impl::parse(&client, url).await.unwrap();
 
-    let link_720 = player_response.links().quality_720().first().unwrap().src();
+    let link_720 = &kodik_response.links.quality_720.first().unwrap().src;
     println!("Link with 720p quality is: {}", link_720);
 }
 ```
@@ -46,9 +46,9 @@ use kodik_parser::blocking;
 fn main() {
     let agent = Agent::new_with_defaults();
     let url = "https://kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
-    let player_response = blocking::parse(&agent, url).unwrap();
+    let kodik_response = blocking::parse(&agent, url).unwrap();
 
-    let link_720 = player_response.links().quality_720().first().unwrap().src();
+    let link_720 = &kodik_response.links.quality_720.first().unwrap().src;
     println!("Link with 720p quality is: {}", link_720);
 }
 ```

@@ -4,7 +4,7 @@ use crate::{
     blocking::scraper,
     decoder,
     parser::{VIDEO_INFO_ENDPOINT, extract_player_url, extract_video_info, get_api_endpoint, get_domain},
-    scraper::PlayerResponse,
+    scraper::KodikResponse,
 };
 
 /// Parses a Kodik player page synchronously and returns structured video stream information.
@@ -26,7 +26,7 @@ use crate::{
 /// * `url` – A full Kodik player page URL.
 ///
 /// # Returns
-/// A [`PlayerResponse`] containing structured player metadata and stream URLs.
+/// A [`KodikResponse`] containing structured player metadata and stream URLs.
 ///
 /// # Errors
 /// Returns an error if:
@@ -44,13 +44,13 @@ use crate::{
 /// # fn run() {
 /// let agent = Agent::new_with_defaults();
 /// let url = "https://kodik.info/some-type/some-id/some-hash/some-quality";
-/// let player_response = blocking::parse(&agent, url).unwrap();
+/// let kodik_response = blocking::parse(&agent, url).unwrap();
 ///
-/// let link_720 = player_response.links().quality_720().first().unwrap().src();
+/// let link_720 = &kodik_response.links.quality_720.first().unwrap().src;
 /// println!("Link with 720p quality is: {}", link_720);
 /// # }
 /// ```
-pub fn parse(agent: &Agent, url: &str) -> Result<PlayerResponse, Box<dyn std::error::Error>> {
+pub fn parse(agent: &Agent, url: &str) -> Result<KodikResponse, Box<dyn std::error::Error>> {
     let domain = get_domain(url)?;
 
     let response_text = scraper::get(agent, url)?;
@@ -63,11 +63,11 @@ pub fn parse(agent: &Agent, url: &str) -> Result<PlayerResponse, Box<dyn std::er
     }
 
     let api_endpoint = VIDEO_INFO_ENDPOINT.read()?.clone();
-    let mut player_response = scraper::post(agent, domain, &api_endpoint, &video_info)?;
+    let mut kodik_response = scraper::post(agent, domain, &api_endpoint, &video_info)?;
 
-    decoder::decode_links(&mut player_response)?;
+    decoder::decode_links(&mut kodik_response)?;
 
-    Ok(player_response)
+    Ok(kodik_response)
 }
 
 #[cfg(test)]
@@ -78,7 +78,7 @@ mod tests {
     fn test_parse() {
         let agent = Agent::new_with_defaults();
         let url = "https://kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
-        let response = parse(&agent, url).unwrap();
-        println!("{response:#?}");
+        let kodik_response = parse(&agent, url).unwrap();
+        println!("{kodik_response:#?}");
     }
 }

@@ -7,8 +7,7 @@ pub static VIDEO_INFO_ENDPOINT: RwLock<String> = RwLock::new(String::new());
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct VideoInfo<'a> {
-    #[serde(rename = "type")]
-    video_type: &'a str,
+    r#type: &'a str,
     hash: &'a str,
     id: &'a str,
     bad_user: &'static str,
@@ -17,9 +16,9 @@ pub struct VideoInfo<'a> {
 }
 
 impl<'a> VideoInfo<'a> {
-    pub(crate) const fn new(video_type: &'a str, hash: &'a str, id: &'a str) -> Self {
+    pub const fn new(r#type: &'a str, hash: &'a str, id: &'a str) -> Self {
         Self {
-            video_type,
+            r#type,
             hash,
             id,
             bad_user: "True",
@@ -30,7 +29,7 @@ impl<'a> VideoInfo<'a> {
 
     fn iter(&'a self) -> std::array::IntoIter<(&'a str, &'a str), 6> {
         [
-            ("type", self.video_type),
+            ("type", self.r#type),
             ("hash", self.hash),
             ("id", self.id),
             ("bad_user", self.bad_user),
@@ -61,32 +60,31 @@ pub fn get_domain(url: &str) -> Result<&str, Box<dyn std::error::Error>> {
 }
 
 pub fn extract_video_info(response_text: &'_ str) -> Result<VideoInfo<'_>, Box<dyn std::error::Error>> {
-    static TYPE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"videoInfo\.type = '(.*?)';").unwrap());
-    static HASH_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"videoInfo\.hash = '(.*?)';").unwrap());
-    static ID_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"videoInfo\.id = '(.*?)';").unwrap());
+    static VIDEO_INFO_REGEX: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"videoInfo\.(?P<field>type|hash|id) = '(?P<value>.*?)';").unwrap());
 
-    let video_type = TYPE_REGEX
-        .captures(response_text)
-        .ok_or("videoInfo.type not found")?
-        .get(1)
-        .unwrap()
-        .as_str();
+    let (r#type, hash, id) = {
+        let mut video_type = None;
+        let mut hash = None;
+        let mut id = None;
 
-    let hash = HASH_REGEX
-        .captures(response_text)
-        .ok_or("videoInfo.hash not found")?
-        .get(1)
-        .unwrap()
-        .as_str();
+        for caps in VIDEO_INFO_REGEX.captures_iter(response_text) {
+            match &caps["field"] {
+                "type" => video_type = Some(caps.name("value").ok_or("videoInfo.type value not found")?.as_str()),
+                "hash" => hash = Some(caps.name("value").ok_or("videoInfo.hash value not found")?.as_str()),
+                "id" => id = Some(caps.name("value").ok_or("videoInfo.id value not found")?.as_str()),
+                _ => {}
+            }
+        }
 
-    let id = ID_REGEX
-        .captures(response_text)
-        .ok_or("videoInfo.id not found")?
-        .get(1)
-        .unwrap()
-        .as_str();
+        (
+            video_type.ok_or("videoInfo.type not found")?,
+            hash.ok_or("videoInfo.hash not found")?,
+            id.ok_or("videoInfo.id not found")?,
+        )
+    };
 
-    Ok(VideoInfo::new(video_type, hash, id))
+    Ok(VideoInfo::new(r#type, hash, id))
 }
 
 pub fn extract_player_url(domain: &str, response_text: &str) -> Result<String, Box<dyn std::error::Error>> {
@@ -104,12 +102,12 @@ pub fn extract_player_url(domain: &str, response_text: &str) -> Result<String, B
     Ok(format!("https://{domain}/{player_path}"))
 }
 
-pub fn get_api_endpoint(player_response_text: &str) -> Result<String, Box<dyn std::error::Error>> {
+pub fn get_api_endpoint(kodik_response_text: &str) -> Result<String, Box<dyn std::error::Error>> {
     static ENDPOINT_REGEX: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r#"\$\.ajax\([^>]+,url:\s*atob\(["\']([\w=]+)["\']\)"#).unwrap());
 
     let encoded_api_endpoint = ENDPOINT_REGEX
-        .captures(player_response_text)
+        .captures(kodik_response_text)
         .ok_or("There is no api endpoint in player response")?
         .get(1)
         .unwrap()
@@ -124,8 +122,8 @@ mod tests {
 
     #[test]
     fn test_get_domain() {
-        let url_with_scheme = "https://kodik.info/seria/1484069/6a2e103e9acf9829c6cba7e69555afb1/720p";
-        let url_without_scheme = "kodik.info/seria/1484069/6a2e103e9acf9829c6cba7e69555afb1/720p";
+        let url_with_scheme = "https://kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
+        let url_without_scheme = "kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
 
         assert_eq!("kodik.info", get_domain(url_with_scheme).unwrap());
         assert_eq!("kodik.info", get_domain(url_without_scheme).unwrap());
@@ -133,13 +131,13 @@ mod tests {
 
     #[test]
     fn test_extract_video_info() {
-        let expected_video_info = VideoInfo::new("seria", "6a2e103e9acf9829c6cba7e69555afb1", "1484069");
+        let expected_video_info = VideoInfo::new("video", "060cab655974d46835b3f4405807acc2", "91873");
 
         let response_text = "
   var videoInfo = {};
-   videoInfo.type = 'seria'; 
-   videoInfo.hash = '6a2e103e9acf9829c6cba7e69555afb1'; 
-   videoInfo.id = '1484069'; 
+   videoInfo.type = 'video';
+   videoInfo.hash = '060cab655974d46835b3f4405807acc2';
+   videoInfo.id = '91873';
 </script>";
 
         let video_info = extract_video_info(response_text).unwrap();
@@ -175,5 +173,16 @@ mod tests {
     fn test_get_api_endpoint() {
         let player_response_text = r#"==t.secret&&(e.secret=t.secret),userInfo&&"object"===_typeof(userInfo.info)&&(e.info=JSON.stringify(userInfo.info)),void 0!==window.advertTest&&(e.a_test=!0),!0===t.isUpdate&&(e.isUpdate=!0),$.ajax({type:"POST",url:atob("L2Z0b3I="),"#;
         assert_eq!("/ftor", get_api_endpoint(player_response_text).unwrap());
+    }
+
+    #[test]
+    fn test_video_info_serialize() {
+        let video_info = VideoInfo::new("video", "060cab655974d46835b3f4405807acc2", "91873");
+
+        let serialized = serde_json::to_string(&video_info).unwrap();
+        assert_eq!(
+            r#"{"type":"video","hash":"060cab655974d46835b3f4405807acc2","id":"91873","bad_user":"True","info":"{}","cdn_is_working":"True"}"#,
+            serialized
+        );
     }
 }

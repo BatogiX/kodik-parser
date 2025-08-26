@@ -6,7 +6,7 @@ use ureq::{
     },
 };
 
-use crate::{parser::VideoInfo, scraper::PlayerResponse, util};
+use crate::{parser::VideoInfo, scraper::KodikResponse, util};
 
 pub fn get(agent: &Agent, url: &str) -> Result<String, Box<dyn std::error::Error>> {
     let ua_header = util::spoof_random_ua();
@@ -26,8 +26,8 @@ pub fn post(
     domain: &str,
     api_endpoint: &str,
     video_info: &VideoInfo<'_>,
-) -> Result<PlayerResponse, Box<dyn std::error::Error>> {
-    let response_text = agent
+) -> Result<KodikResponse, Box<dyn std::error::Error>> {
+    let kodik_response = agent
         .post(format!("https://{domain}{api_endpoint}"))
         .header(ORIGIN, format!("https://{domain}"))
         .header(ACCEPT, "application/json, text/javascript, */*; q=0.01")
@@ -38,7 +38,7 @@ pub fn post(
         .body_mut()
         .read_json()?;
 
-    Ok(response_text)
+    Ok(kodik_response)
 }
 
 #[cfg(test)]
@@ -59,7 +59,7 @@ mod tests {
         let domain = "kodik.info";
         let api_endpoint = "/ftor";
         let video_info = VideoInfo::new("video", "060cab655974d46835b3f4405807acc2", "91873");
-        let response_text = post(&agent, domain, api_endpoint, &video_info).unwrap();
-        println!("{response_text:#?}");
+        let kodik_response = post(&agent, domain, api_endpoint, &video_info).unwrap();
+        println!("{kodik_response:#?}");
     }
 }
