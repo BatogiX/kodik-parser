@@ -6,9 +6,9 @@ use ureq::{
     },
 };
 
-use crate::{parser::VideoInfo, scraper::KodikResponse, util};
+use crate::{error::Error, parser::VideoInfo, scraper::KodikResponse, util};
 
-pub fn get(agent: &Agent, url: &str) -> Result<String, Box<dyn std::error::Error>> {
+pub fn get(agent: &Agent, url: &str) -> Result<String, Error> {
     let ua_header = util::spoof_random_ua();
 
     let response_text = agent
@@ -26,7 +26,7 @@ pub fn post(
     domain: &str,
     api_endpoint: &str,
     video_info: &VideoInfo<'_>,
-) -> Result<KodikResponse, Box<dyn std::error::Error>> {
+) -> Result<KodikResponse, Error> {
     let kodik_response = agent
         .post(format!("https://{domain}{api_endpoint}"))
         .header(ORIGIN, format!("https://{domain}"))

@@ -1,6 +1,10 @@
-use std::sync::{LazyLock, RwLock};
+use std::{
+    array::IntoIter,
+    sync::{LazyLock, RwLock},
+};
 
 use crate::decoder;
+use crate::error::Error;
 use regex::Regex;
 use serde::Serialize;
 pub static VIDEO_INFO_ENDPOINT: RwLock<String> = RwLock::new(String::new());
@@ -27,7 +31,7 @@ impl<'a> VideoInfo<'a> {
         }
     }
 
-    fn iter(&'a self) -> std::array::IntoIter<(&'a str, &'a str), 6> {
+    fn iter(&'a self) -> IntoIter<(&'a str, &'a str), 6> {
         [
             ("type", self.r#type),
             ("hash", self.hash),
@@ -42,24 +46,24 @@ impl<'a> VideoInfo<'a> {
 
 impl<'a> IntoIterator for &'a VideoInfo<'a> {
     type Item = (&'a str, &'a str);
-    type IntoIter = std::array::IntoIter<Self::Item, 6>;
+    type IntoIter = IntoIter<Self::Item, 6>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
 }
 
-pub fn get_domain(url: &str) -> Result<&str, Box<dyn std::error::Error>> {
+pub fn get_domain(url: &str) -> Result<&str, Error> {
     static DOMAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]").unwrap()
     });
 
-    let domain = DOMAIN_REGEX.find(url).ok_or("No valid domain found")?;
+    let domain = DOMAIN_REGEX.find(url).ok_or(Error::Regex("No valid domain found"))?;
 
     Ok(domain.as_str())
 }
 
-pub fn extract_video_info(response_text: &'_ str) -> Result<VideoInfo<'_>, Box<dyn std::error::Error>> {
+pub fn extract_video_info(response_text: &'_ str) -> Result<VideoInfo<'_>, Error> {
     static VIDEO_INFO_REGEX: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"videoInfo\.(?P<field>type|hash|id) = '(?P<value>.*?)';").unwrap());
 
@@ -70,31 +74,49 @@ pub fn extract_video_info(response_text: &'_ str) -> Result<VideoInfo<'_>, Box<d
 
         for caps in VIDEO_INFO_REGEX.captures_iter(response_text) {
             match &caps["field"] {
-                "type" => video_type = Some(caps.name("value").ok_or("videoInfo.type value not found")?.as_str()),
-                "hash" => hash = Some(caps.name("value").ok_or("videoInfo.hash value not found")?.as_str()),
-                "id" => id = Some(caps.name("value").ok_or("videoInfo.id value not found")?.as_str()),
+                "type" => {
+                    video_type = Some(
+                        caps.name("value")
+                            .ok_or(Error::Regex("videoInfo.type value not found"))?
+                            .as_str(),
+                    );
+                }
+                "hash" => {
+                    hash = Some(
+                        caps.name("value")
+                            .ok_or(Error::Regex("videoInfo.hash value not found"))?
+                            .as_str(),
+                    );
+                }
+                "id" => {
+                    id = Some(
+                        caps.name("value")
+                            .ok_or(Error::Regex("videoInfo.id value not found"))?
+                            .as_str(),
+                    );
+                }
                 _ => {}
             }
         }
 
         (
-            video_type.ok_or("videoInfo.type not found")?,
-            hash.ok_or("videoInfo.hash not found")?,
-            id.ok_or("videoInfo.id not found")?,
+            video_type.ok_or(Error::Regex("videoInfo.type not found"))?,
+            hash.ok_or(Error::Regex("videoInfo.hash not found"))?,
+            id.ok_or(Error::Regex("videoInfo.id not found"))?,
         )
     };
 
     Ok(VideoInfo::new(r#type, hash, id))
 }
 
-pub fn extract_player_url(domain: &str, response_text: &str) -> Result<String, Box<dyn std::error::Error>> {
+pub fn extract_player_url(domain: &str, response_text: &str) -> Result<String, Error> {
     static PLAYER_PATH_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r#"<script\s*type="text/javascript"\s*src="/(assets/js/app\.player_single[^"]*)""#).unwrap()
     });
 
     let player_path = PLAYER_PATH_REGEX
         .captures(response_text)
-        .ok_or("There is no player path in response text")?
+        .ok_or(Error::Regex("There is no player path in response text"))?
         .get(1)
         .unwrap()
         .as_str();
@@ -102,13 +124,13 @@ pub fn extract_player_url(domain: &str, response_text: &str) -> Result<String, B
     Ok(format!("https://{domain}/{player_path}"))
 }
 
-pub fn get_api_endpoint(kodik_response_text: &str) -> Result<String, Box<dyn std::error::Error>> {
+pub fn get_api_endpoint(kodik_response_text: &str) -> Result<String, Error> {
     static ENDPOINT_REGEX: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r#"\$\.ajax\([^>]+,url:\s*atob\(["\']([\w=]+)["\']\)"#).unwrap());
 
     let encoded_api_endpoint = ENDPOINT_REGEX
         .captures(kodik_response_text)
-        .ok_or("There is no api endpoint in player response")?
+        .ok_or(Error::Regex("There is no api endpoint in player response"))?
         .get(1)
         .unwrap()
         .as_str();

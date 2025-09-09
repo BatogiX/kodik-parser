@@ -1,8 +1,11 @@
+use std::sync;
+
 use ureq::Agent;
 
 use crate::{
     blocking::scraper,
     decoder,
+    error::Error,
     parser::{VIDEO_INFO_ENDPOINT, extract_player_url, extract_video_info, get_api_endpoint, get_domain},
     scraper::KodikResponse,
 };
@@ -50,21 +53,31 @@ use crate::{
 /// println!("Link with 720p quality is: {}", link_720);
 /// # }
 /// ```
-pub fn parse(agent: &Agent, url: &str) -> Result<KodikResponse, Box<dyn std::error::Error>> {
+pub fn parse(agent: &Agent, url: &str) -> Result<KodikResponse, Error> {
     let domain = get_domain(url)?;
-
     let response_text = scraper::get(agent, url)?;
     let video_info = extract_video_info(&response_text)?;
 
-    if VIDEO_INFO_ENDPOINT.read()?.is_empty() {
-        let player_url = extract_player_url(domain, &response_text)?;
-        let player_response_text = scraper::get(agent, &player_url)?;
-        *VIDEO_INFO_ENDPOINT.write()? = get_api_endpoint(&player_response_text)?;
-    }
+    let api_endpoint = {
+        if VIDEO_INFO_ENDPOINT
+            .read()
+            .unwrap_or_else(sync::PoisonError::into_inner)
+            .is_empty()
+        {
+            let player_url = extract_player_url(domain, &response_text)?;
+            let player_response_text = scraper::get(agent, &player_url)?;
+            *VIDEO_INFO_ENDPOINT
+                .write()
+                .unwrap_or_else(sync::PoisonError::into_inner) = get_api_endpoint(&player_response_text)?;
+        }
 
-    let api_endpoint = VIDEO_INFO_ENDPOINT.read()?.clone();
+        VIDEO_INFO_ENDPOINT
+            .read()
+            .unwrap_or_else(sync::PoisonError::into_inner)
+            .clone()
+    };
+
     let mut kodik_response = scraper::post(agent, domain, &api_endpoint, &video_info)?;
-
     decoder::decode_links(&mut kodik_response)?;
 
     Ok(kodik_response)

@@ -21,3 +21,4 @@ pub use scraper::{KodikResponse, Link, Links};
 pub mod async_impl;
 #[cfg(feature = "blocking")]
 pub mod blocking;
+pub mod error;

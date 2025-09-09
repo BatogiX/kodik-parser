@@ -2,11 +2,11 @@ use std::sync::atomic::{AtomicU8, Ordering};
 
 use base64::{Engine as _, engine::general_purpose};
 
-use crate::scraper::KodikResponse;
+use crate::{error::Error, scraper::KodikResponse};
 
 static SHIFT: AtomicU8 = AtomicU8::new(0);
 
-pub fn decode_links(kodik_response: &mut KodikResponse) -> Result<(), Box<dyn std::error::Error>> {
+pub fn decode_links(kodik_response: &mut KodikResponse) -> Result<(), Error> {
     for link_360 in &mut kodik_response.links.quality_360 {
         link_360.src = decode_link(&link_360.src)?;
     }
@@ -38,7 +38,7 @@ pub fn decode_links(kodik_response: &mut KodikResponse) -> Result<(), Box<dyn st
     Ok(())
 }
 
-fn decode_link(src: &str) -> Result<String, Box<dyn std::error::Error>> {
+fn decode_link(src: &str) -> Result<String, Error> {
     let shift = SHIFT.load(Ordering::Relaxed);
 
     if shift != 0
@@ -54,10 +54,10 @@ fn decode_link(src: &str) -> Result<String, Box<dyn std::error::Error>> {
         }
     }
 
-    Err(format!("Src: {src} cannot be decoded").into())
+    Err(Error::LinkCannotBeDecoded(src.to_owned()))
 }
 
-fn try_decode(src: &str, shift: u8) -> Result<String, Box<dyn std::error::Error>> {
+fn try_decode(src: &str, shift: u8) -> Result<String, Error> {
     let mut decoded_caesar = caesar_cipher(src, shift);
 
     while decoded_caesar.len() % 4 != 0 {
@@ -83,7 +83,7 @@ fn caesar_cipher(text: &str, shift: u8) -> String {
         .collect()
 }
 
-pub fn b64(input: &str) -> Result<String, Box<dyn std::error::Error>> {
+pub fn b64(input: &str) -> Result<String, Error> {
     let decoded_input = general_purpose::STANDARD.decode(input)?;
 
     Ok(String::from_utf8(decoded_input)?)

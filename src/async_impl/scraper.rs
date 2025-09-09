@@ -3,9 +3,9 @@ use reqwest::{
     header::{ACCEPT, HeaderName, ORIGIN, REFERER, USER_AGENT},
 };
 
-use crate::{parser::VideoInfo, scraper::KodikResponse, util};
+use crate::{error::Error, parser::VideoInfo, scraper::KodikResponse, util};
 
-pub async fn get(client: &Client, url: &str) -> Result<String, reqwest::Error> {
+pub async fn get(client: &Client, url: &str) -> Result<String, Error> {
     let agent = util::spoof_random_ua();
 
     let response_text = client.get(url).header(USER_AGENT, agent).send().await?.text().await?;
@@ -18,7 +18,7 @@ pub async fn post(
     domain: &str,
     api_endpoint: &str,
     video_info: &VideoInfo<'_>,
-) -> Result<KodikResponse, reqwest::Error> {
+) -> Result<KodikResponse, Error> {
     let kodik_response = client
         .post(format!("https://{domain}{api_endpoint}"))
         .header(ORIGIN, format!("https://{domain}"))
