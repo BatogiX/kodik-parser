@@ -65,7 +65,7 @@ pub fn get_domain(url: &str) -> Result<&str, Error> {
 
 pub fn extract_video_info(response_text: &'_ str) -> Result<VideoInfo<'_>, Error> {
     static VIDEO_INFO_REGEX: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"videoInfo\.(?P<field>type|hash|id) = '(?P<value>.*?)';").unwrap());
+        LazyLock::new(|| Regex::new(r"\.(?P<field>type|hash|id) = '(?P<value>.*?)';").unwrap());
 
     let (r#type, hash, id) = {
         let mut video_type = None;
@@ -157,9 +157,9 @@ mod tests {
 
         let response_text = "
   var videoInfo = {};
-   videoInfo.type = 'video';
-   videoInfo.hash = '060cab655974d46835b3f4405807acc2';
-   videoInfo.id = '91873';
+   vInfo.type = 'video';
+   vInfo.hash = '060cab655974d46835b3f4405807acc2';
+   vInfo.id = '91873';
 </script>";
 
         let video_info = extract_video_info(response_text).unwrap();
