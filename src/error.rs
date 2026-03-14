@@ -1,5 +1,5 @@
 //! Error types for the Kodik parser library.
-use std::{fmt, string};
+use std::{error, fmt, string};
 
 /// Errors from kodik-parser.
 #[derive(Debug)]
@@ -21,12 +21,14 @@ pub enum Error {
     LinkCannotBeDecoded(String),
 }
 
-impl std::error::Error for Error {}
+impl error::Error for Error {}
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            #[cfg(feature = "async-impl")]
             Self::Reqwest(error) => write!(f, "Reqwest: {error}"),
+            #[cfg(feature = "blocking")]
             Self::Ureq(error) => write!(f, "Ureq: {error}"),
             Self::Decode(error) => write!(f, "Decode: {error}"),
             Self::FromUtf8(error) => write!(f, "FromUtf8: {error}"),
@@ -36,12 +38,14 @@ impl fmt::Display for Error {
     }
 }
 
+#[cfg(feature = "async-impl")]
 impl From<reqwest::Error> for Error {
     fn from(value: reqwest::Error) -> Self {
         Self::Reqwest(value)
     }
 }
 
+#[cfg(feature = "blocking")]
 impl From<ureq::Error> for Error {
     fn from(value: ureq::Error) -> Self {
         Self::Ureq(value)

@@ -60,7 +60,7 @@ fn decode_link(src: &str) -> Result<String, Error> {
 fn try_decode(src: &str, shift: u8) -> Result<String, Error> {
     let mut decoded_caesar = caesar_cipher(src, shift);
 
-    while decoded_caesar.len() % 4 != 0 {
+    while !decoded_caesar.len().is_multiple_of(4) {
         decoded_caesar.push('=');
     }
 
