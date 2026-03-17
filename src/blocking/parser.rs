@@ -5,7 +5,7 @@ use ureq::Agent;
 use crate::{
     blocking::scraper,
     decoder,
-    error::Error,
+    error::KodikError,
     parser::{VIDEO_INFO_ENDPOINT, extract_player_url, extract_video_info, get_api_endpoint, get_domain},
     scraper::KodikResponse,
 };
@@ -50,10 +50,10 @@ use crate::{
 /// let kodik_response = blocking::parse(&agent, url).unwrap();
 ///
 /// let link_720 = &kodik_response.links.quality_720.first().unwrap().src;
-/// println!("Link with 720p quality is: {}", link_720);
+/// println!("Link with 720p quality is: {link_720}");
 /// # }
 /// ```
-pub fn parse(agent: &Agent, url: &str) -> Result<KodikResponse, Error> {
+pub fn parse(agent: &Agent, url: &str) -> Result<KodikResponse, KodikError> {
     let domain = get_domain(url)?;
     let response_text = scraper::get(agent, url)?;
     let video_info = extract_video_info(&response_text)?;
@@ -88,7 +88,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse() {
+    fn blocking_parse() {
         let agent = Agent::new_with_defaults();
         let url = "https://kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
         let kodik_response = parse(&agent, url).unwrap();

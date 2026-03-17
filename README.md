@@ -28,7 +28,7 @@ async fn main() {
     let kodik_response = async_impl::parse(&client, url).await.unwrap();
 
     let link_720 = &kodik_response.links.quality_720.first().unwrap().src;
-    println!("Link with 720p quality is: {}", link_720);
+    println!("Link with 720p quality is: {link_720}");
 }
 ```
 
@@ -49,6 +49,6 @@ fn main() {
     let kodik_response = blocking::parse(&agent, url).unwrap();
 
     let link_720 = &kodik_response.links.quality_720.first().unwrap().src;
-    println!("Link with 720p quality is: {}", link_720);
+    println!("Link with 720p quality is: {link_720}");
 }
 ```

@@ -2,11 +2,11 @@ use std::sync::atomic::{AtomicU8, Ordering};
 
 use base64::{Engine as _, engine::general_purpose};
 
-use crate::{error::Error, scraper::KodikResponse};
+use crate::{error::KodikError, scraper::KodikResponse};
 
 static SHIFT: AtomicU8 = AtomicU8::new(0);
 
-pub fn decode_links(kodik_response: &mut KodikResponse) -> Result<(), Error> {
+pub fn decode_links(kodik_response: &mut KodikResponse) -> Result<(), KodikError> {
     for link_360 in &mut kodik_response.links.quality_360 {
         link_360.src = decode_link(&link_360.src)?;
     }
@@ -38,7 +38,7 @@ pub fn decode_links(kodik_response: &mut KodikResponse) -> Result<(), Error> {
     Ok(())
 }
 
-fn decode_link(src: &str) -> Result<String, Error> {
+fn decode_link(src: &str) -> Result<String, KodikError> {
     let shift = SHIFT.load(Ordering::Relaxed);
 
     if shift != 0
@@ -54,10 +54,10 @@ fn decode_link(src: &str) -> Result<String, Error> {
         }
     }
 
-    Err(Error::LinkCannotBeDecoded(src.to_owned()))
+    Err(KodikError::LinkCannotBeDecoded(src.to_owned()))
 }
 
-fn try_decode(src: &str, shift: u8) -> Result<String, Error> {
+fn try_decode(src: &str, shift: u8) -> Result<String, KodikError> {
     let mut decoded_caesar = caesar_cipher(src, shift);
 
     while !decoded_caesar.len().is_multiple_of(4) {
@@ -83,7 +83,7 @@ fn caesar_cipher(text: &str, shift: u8) -> String {
         .collect()
 }
 
-pub fn b64(input: &str) -> Result<String, Error> {
+pub fn b64(input: &str) -> Result<String, KodikError> {
     let decoded_input = general_purpose::STANDARD.decode(input)?;
 
     Ok(String::from_utf8(decoded_input)?)
@@ -96,14 +96,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_b64() {
+    fn b64_test() {
         let input = "L2Z0b3I=";
         let decoded = b64(input).unwrap();
         assert_eq!("/ftor", decoded);
     }
 
     #[test]
-    fn test_caesar_cipher() {
+    fn caesar_cipher_test() {
         let text = "iPZ0kPU6Tg9eVBGci29siEaciE5ujg9hT20dBPs5iuRPWBNiYhDgGrRAkON5UFxsZht5EDlsjMfbBvHqChsfGhREmEZGYvVqUsHzG3s4ms9Ci3tHjDxwB1UeVDtyGhVUDNM0EtZRlM9PEuxHChI1EslAjDtCHhDVmtRwB0ZDThM1GrQgVBtsWBs1GhHrVEC1V2Y0VuVuVrGeVBGeVrHpUBM2UuG3UhZqVBJrGBZuGhM5UrHpGBHuUro0V2UeUBI6UrIgVBI4UBYgUA8hVrIcjFI0WupakhxbGE5xHuDhlK5bU3C4";
         let decoded = caesar_cipher(text, 8);
         assert_eq!(
@@ -113,7 +113,7 @@ mod tests {
     }
 
     #[test]
-    fn test_try_decode() {
+    fn try_decoding() {
         let src = "iPZ0kPU6Tg9eVBGci29siEaciE5ujg9hT20dBPs5iuRPWBNiYhDgGrRAkON5UFxsZht5EDlsjMfbBvHqChsfGhREmEZGYvVqUsHzG3s4ms9Ci3tHjDxwB1UeVDtyGhVUDNM0EtZRlM9PEuxHChI1EslAjDtCHhDVmtRwB0ZDThM1GrQgVBtsWBs1GhHrVEC1V2Y0VuVuVrGeVBGeVrHpUBM2UuG3UhZqVBJrGBZuGhM5UrHpGBHuUro0V2UeUBI6UrIgVBI4UBYgUA8hVrIcjFI0WupakhxbGE5xHuDhlK5bU3C4";
         let decoded = try_decode(src, 8).unwrap();
         assert_eq!(
@@ -123,7 +123,7 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_link() {
+    fn decoding_link() {
         let src = "iPZ0kPU6Tg9eVBGci29siEaciE5ujg9hT20dBPs5iuRPWBNiYhDgGrRAkON5UFxsZht5EDlsjMfbBvHqChsfGhREmEZGYvVqUsHzG3s4ms9Ci3tHjDxwB1UeVDtyGhVUDNM0EtZRlM9PEuxHChI1EslAjDtCHhDVmtRwB0ZDThM1GrQgVBtsWBs1GhHrVEC1V2Y0VuVuVrGeVBGeVrHpUBM2UuG3UhZqVBJrGBZuGhM5UrHpGBHuUro0V2UeUBI6UrIgVBI4UBYgUA8hVrIcjFI0WupakhxbGE5xHuDhlK5bU3C4";
         let decoded = decode_link(src).unwrap();
         assert_eq!(
@@ -133,7 +133,7 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_links() {
+    fn decoding_links() {
         let mut kodik_response = KodikResponse {
     links: Links {
         quality_360: vec![

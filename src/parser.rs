@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::decoder;
-use crate::error::Error;
+use crate::error::KodikError;
 use regex::Regex;
 use serde::Serialize;
 pub static VIDEO_INFO_ENDPOINT: RwLock<String> = RwLock::new(String::new());
@@ -53,17 +53,19 @@ impl<'a> IntoIterator for &'a VideoInfo<'a> {
     }
 }
 
-pub fn get_domain(url: &str) -> Result<&str, Error> {
+pub fn get_domain(url: &str) -> Result<&str, KodikError> {
     static DOMAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]").unwrap()
     });
 
-    let domain = DOMAIN_REGEX.find(url).ok_or(Error::Regex("No valid domain found"))?;
+    let domain = DOMAIN_REGEX
+        .find(url)
+        .ok_or(KodikError::Regex("no valid domain found"))?;
 
     Ok(domain.as_str())
 }
 
-pub fn extract_video_info(response_text: &'_ str) -> Result<VideoInfo<'_>, Error> {
+pub fn extract_video_info(response_text: &'_ str) -> Result<VideoInfo<'_>, KodikError> {
     static VIDEO_INFO_REGEX: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\.(?P<field>type|hash|id) = '(?P<value>.*?)';").unwrap());
 
@@ -77,21 +79,21 @@ pub fn extract_video_info(response_text: &'_ str) -> Result<VideoInfo<'_>, Error
                 "type" => {
                     video_type = Some(
                         caps.name("value")
-                            .ok_or(Error::Regex("videoInfo.type value not found"))?
+                            .ok_or(KodikError::Regex("videoInfo.type value not found"))?
                             .as_str(),
                     );
                 }
                 "hash" => {
                     hash = Some(
                         caps.name("value")
-                            .ok_or(Error::Regex("videoInfo.hash value not found"))?
+                            .ok_or(KodikError::Regex("videoInfo.hash value not found"))?
                             .as_str(),
                     );
                 }
                 "id" => {
                     id = Some(
                         caps.name("value")
-                            .ok_or(Error::Regex("videoInfo.id value not found"))?
+                            .ok_or(KodikError::Regex("videoInfo.id value not found"))?
                             .as_str(),
                     );
                 }
@@ -100,23 +102,23 @@ pub fn extract_video_info(response_text: &'_ str) -> Result<VideoInfo<'_>, Error
         }
 
         (
-            video_type.ok_or(Error::Regex("videoInfo.type not found"))?,
-            hash.ok_or(Error::Regex("videoInfo.hash not found"))?,
-            id.ok_or(Error::Regex("videoInfo.id not found"))?,
+            video_type.ok_or(KodikError::Regex("videoInfo.type not found"))?,
+            hash.ok_or(KodikError::Regex("videoInfo.hash not found"))?,
+            id.ok_or(KodikError::Regex("videoInfo.id not found"))?,
         )
     };
 
     Ok(VideoInfo::new(r#type, hash, id))
 }
 
-pub fn extract_player_url(domain: &str, response_text: &str) -> Result<String, Error> {
+pub fn extract_player_url(domain: &str, response_text: &str) -> Result<String, KodikError> {
     static PLAYER_PATH_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r#"<script\s*type="text/javascript"\s*src="/(assets/js/app\.player_single[^"]*)""#).unwrap()
     });
 
     let player_path = PLAYER_PATH_REGEX
         .captures(response_text)
-        .ok_or(Error::Regex("There is no player path in response text"))?
+        .ok_or(KodikError::Regex("there is no player path in response text"))?
         .get(1)
         .unwrap()
         .as_str();
@@ -124,13 +126,13 @@ pub fn extract_player_url(domain: &str, response_text: &str) -> Result<String, E
     Ok(format!("https://{domain}/{player_path}"))
 }
 
-pub fn get_api_endpoint(kodik_response_text: &str) -> Result<String, Error> {
+pub fn get_api_endpoint(kodik_response_text: &str) -> Result<String, KodikError> {
     static ENDPOINT_REGEX: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r#"\$\.ajax\([^>]+,url:\s*atob\(["\']([\w=]+)["\']\)"#).unwrap());
 
     let encoded_api_endpoint = ENDPOINT_REGEX
         .captures(kodik_response_text)
-        .ok_or(Error::Regex("There is no api endpoint in player response"))?
+        .ok_or(KodikError::Regex("there is no api endpoint in player response"))?
         .get(1)
         .unwrap()
         .as_str();
@@ -143,7 +145,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_get_domain() {
+    fn getting_domain() {
         let url_with_scheme = "https://kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
         let url_without_scheme = "kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
 
@@ -152,7 +154,7 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_video_info() {
+    fn extracting_video_info() {
         let expected_video_info = VideoInfo::new("video", "060cab655974d46835b3f4405807acc2", "91873");
 
         let response_text = "
@@ -168,7 +170,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_player_url() {
+    fn getting_player_url() {
         let domain = "kodik.info";
         let response_text = r#"
   </script>
@@ -192,13 +194,13 @@ mod tests {
     }
 
     #[test]
-    fn test_get_api_endpoint() {
+    fn getting_api_endpoint() {
         let player_response_text = r#"==t.secret&&(e.secret=t.secret),userInfo&&"object"===_typeof(userInfo.info)&&(e.info=JSON.stringify(userInfo.info)),void 0!==window.advertTest&&(e.a_test=!0),!0===t.isUpdate&&(e.isUpdate=!0),$.ajax({type:"POST",url:atob("L2Z0b3I="),"#;
         assert_eq!("/ftor", get_api_endpoint(player_response_text).unwrap());
     }
 
     #[test]
-    fn test_video_info_serialize() {
+    fn video_info_serializing() {
         let video_info = VideoInfo::new("video", "060cab655974d46835b3f4405807acc2", "91873");
 
         let serialized = serde_json::to_string(&video_info).unwrap();

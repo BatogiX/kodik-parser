@@ -3,9 +3,9 @@ use reqwest::{
     header::{ACCEPT, HeaderName, ORIGIN, REFERER, USER_AGENT},
 };
 
-use crate::{error::Error, parser::VideoInfo, scraper::KodikResponse, util};
+use crate::{error::KodikError, parser::VideoInfo, scraper::KodikResponse, util};
 
-pub async fn get(client: &Client, url: &str) -> Result<String, Error> {
+pub async fn get(client: &Client, url: &str) -> Result<String, KodikError> {
     let agent = util::spoof_random_ua();
 
     let response_text = client.get(url).header(USER_AGENT, agent).send().await?.text().await?;
@@ -18,7 +18,7 @@ pub async fn post(
     domain: &str,
     api_endpoint: &str,
     video_info: &VideoInfo<'_>,
-) -> Result<KodikResponse, Error> {
+) -> Result<KodikResponse, KodikError> {
     let kodik_response = client
         .post(format!("https://{domain}{api_endpoint}"))
         .header(ORIGIN, format!("https://{domain}"))
@@ -40,7 +40,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_get() {
+    async fn get_test() {
         let client = Client::new();
         let url = "https://kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
         let response_text = get(&client, url).await.unwrap();
@@ -48,7 +48,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_post() {
+    async fn post_test() {
         let client = Client::new();
         let domain = "kodik.info";
         let api_endpoint = "/ftor";

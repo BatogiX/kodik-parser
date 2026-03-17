@@ -1,65 +1,34 @@
 //! Error types for the Kodik parser library.
-use std::{error, fmt, string};
+use std::string;
+use thiserror::Error;
 
 /// Errors from kodik-parser.
-#[derive(Debug)]
+#[derive(Error, Debug)]
 #[non_exhaustive]
-pub enum Error {
+pub enum KodikError {
     /// Reqwest HTTP client error.
     #[cfg(feature = "async-impl")]
-    Reqwest(reqwest::Error),
+    #[error("{0}")]
+    Reqwest(#[from] reqwest::Error),
+
     /// Ureq HTTP client error.
     #[cfg(feature = "blocking")]
-    Ureq(ureq::Error),
+    #[error("{0}")]
+    Ureq(#[from] ureq::Error),
+
     /// Base64 decoding error.
-    Decode(base64::DecodeError),
+    #[error("{0}")]
+    Decode(#[from] base64::DecodeError),
+
     /// UTF-8 conversion error.
-    FromUtf8(string::FromUtf8Error),
+    #[error("{0}")]
+    FromUtf8(#[from] string::FromUtf8Error),
+
     /// Regex matching error.
+    #[error("{0}")]
     Regex(&'static str),
+
     /// Link cannot be decoded error.
+    #[error("link cannot be decoded {0}")]
     LinkCannotBeDecoded(String),
-}
-
-impl error::Error for Error {}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            #[cfg(feature = "async-impl")]
-            Self::Reqwest(error) => write!(f, "Reqwest: {error}"),
-            #[cfg(feature = "blocking")]
-            Self::Ureq(error) => write!(f, "Ureq: {error}"),
-            Self::Decode(error) => write!(f, "Decode: {error}"),
-            Self::FromUtf8(error) => write!(f, "FromUtf8: {error}"),
-            Self::Regex(msg) => write!(f, "Regex: {msg}"),
-            Self::LinkCannotBeDecoded(v) => write!(f, "Src: {v} cannot be decoded"),
-        }
-    }
-}
-
-#[cfg(feature = "async-impl")]
-impl From<reqwest::Error> for Error {
-    fn from(value: reqwest::Error) -> Self {
-        Self::Reqwest(value)
-    }
-}
-
-#[cfg(feature = "blocking")]
-impl From<ureq::Error> for Error {
-    fn from(value: ureq::Error) -> Self {
-        Self::Ureq(value)
-    }
-}
-
-impl From<base64::DecodeError> for Error {
-    fn from(value: base64::DecodeError) -> Self {
-        Self::Decode(value)
-    }
-}
-
-impl From<string::FromUtf8Error> for Error {
-    fn from(value: string::FromUtf8Error) -> Self {
-        Self::FromUtf8(value)
-    }
 }

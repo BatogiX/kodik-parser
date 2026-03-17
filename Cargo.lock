@@ -568,13 +568,14 @@ dependencies = [
 
 [[package]]
 name = "kodik-parser"
-version = "2.0.1"
+version = "2.1.0"
 dependencies = [
  "base64",
  "regex",
  "reqwest",
  "serde",
  "serde_json",
+ "thiserror 2.0.18",
  "tokio",
  "ua_generator",
  "ureq",
@@ -1222,9 +1223,9 @@ dependencies = [
 
 [[package]]
 name = "tinyvec"
-version = "1.10.0"
+version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfa5fdc3bce6191a1dbc8c02d5c8bffcf557bafa17c124c5264a458f1b0613fa"
+checksum = "3e61e67053d25a4e82c844e8424039d9745781b3fc4f32b8d55ed50f5f667ef3"
 dependencies = [
  "tinyvec_macros",
 ]
@@ -1343,9 +1344,9 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "ua_generator"
-version = "0.5.52"
+version = "0.5.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3eebe5bf263176003918e31d3789d37dc848f142b72da8eb9cbd8b0e067287e9"
+checksum = "37dd8ba00f893f7562c22ee1cf63ddeb129e6f5468c24c08c35151e3594576de"
 dependencies = [
  "fastrand",
 ]

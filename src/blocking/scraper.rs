@@ -6,9 +6,9 @@ use ureq::{
     },
 };
 
-use crate::{error::Error, parser::VideoInfo, scraper::KodikResponse, util};
+use crate::{error::KodikError, parser::VideoInfo, scraper::KodikResponse, util};
 
-pub fn get(agent: &Agent, url: &str) -> Result<String, Error> {
+pub fn get(agent: &Agent, url: &str) -> Result<String, KodikError> {
     let ua_header = util::spoof_random_ua();
 
     let response_text = agent
@@ -26,7 +26,7 @@ pub fn post(
     domain: &str,
     api_endpoint: &str,
     video_info: &VideoInfo<'_>,
-) -> Result<KodikResponse, Error> {
+) -> Result<KodikResponse, KodikError> {
     let kodik_response = agent
         .post(format!("https://{domain}{api_endpoint}"))
         .header(ORIGIN, format!("https://{domain}"))
@@ -46,7 +46,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_get() {
+    fn get_test() {
         let agent = Agent::new_with_defaults();
         let url = "https://kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
         let response_text = get(&agent, url).unwrap();
@@ -54,7 +54,7 @@ mod tests {
     }
 
     #[test]
-    fn test_post() {
+    fn post_test() {
         let agent = Agent::new_with_defaults();
         let domain = "kodik.info";
         let api_endpoint = "/ftor";

@@ -11,14 +11,16 @@
 )]
 
 mod decoder;
+mod error;
 mod parser;
 mod scraper;
 mod util;
 
+pub use error::KodikError;
 pub use scraper::{KodikResponse, Link, Links};
 
 #[cfg(feature = "async-impl")]
 pub mod async_impl;
+
 #[cfg(feature = "blocking")]
 pub mod blocking;
-pub mod error;

@@ -5,7 +5,7 @@ use reqwest::Client;
 use crate::{
     async_impl::scraper,
     decoder,
-    error::Error,
+    error::KodikError,
     parser::{VIDEO_INFO_ENDPOINT, extract_player_url, extract_video_info, get_api_endpoint, get_domain},
     scraper::KodikResponse,
 };
@@ -50,10 +50,10 @@ use crate::{
 /// let kodik_response = async_impl::parse(&client, url).await.unwrap();
 ///
 /// let link_720 = &kodik_response.links.quality_720.first().unwrap().src;
-/// println!("Link with 720p quality is: {}", link_720);
+/// println!("Link with 720p quality is: {link_720}");
 /// # }
 /// ```
-pub async fn parse(client: &Client, url: &str) -> Result<KodikResponse, Error> {
+pub async fn parse(client: &Client, url: &str) -> Result<KodikResponse, KodikError> {
     let domain = get_domain(url)?;
     let response_text = scraper::get(client, url).await?;
     let video_info = extract_video_info(&response_text)?;
@@ -88,7 +88,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_parse() {
+    async fn async_parse() {
         let client = Client::new();
         let url = "https://kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
         let kodik_response = parse(&client, url).await.unwrap();
