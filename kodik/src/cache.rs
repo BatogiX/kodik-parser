@@ -1,7 +1,7 @@
 use std::{
     fs::{self, File, OpenOptions},
     path::PathBuf,
-    sync::{self, LazyLock, atomic::Ordering},
+    sync::{LazyLock, PoisonError, atomic::Ordering},
 };
 
 use directories::BaseDirs;
@@ -46,8 +46,9 @@ impl KodikCache {
         self.video_info_endpoint.clone_from(
             &VIDEO_INFO_ENDPOINT
                 .read()
-                .unwrap_or_else(sync::PoisonError::into_inner),
+                .unwrap_or_else(PoisonError::into_inner),
         );
+
         self.save();
     }
 
@@ -56,16 +57,16 @@ impl KodikCache {
             || self.video_info_endpoint
                 != VIDEO_INFO_ENDPOINT
                     .read()
-                    .unwrap_or_else(sync::PoisonError::into_inner)
+                    .unwrap_or_else(PoisonError::into_inner)
                     .as_str()
     }
 
     pub fn apply_to_globals(&self) {
         SHIFT.store(self.shift, Ordering::Relaxed);
-        let endpoint_clone = self.video_info_endpoint.clone();
-        *VIDEO_INFO_ENDPOINT
+        VIDEO_INFO_ENDPOINT
             .write()
-            .unwrap_or_else(sync::PoisonError::into_inner) = endpoint_clone;
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone_from(&self.video_info_endpoint);
     }
 
     pub fn persist_if_dirty(&mut self) {

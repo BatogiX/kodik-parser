@@ -1,4 +1,4 @@
-use std::sync;
+use std::sync::PoisonError;
 
 use ureq::Agent;
 
@@ -60,17 +60,19 @@ pub fn parse(agent: &Agent, url: &str) -> Result<KodikResponse, KodikError> {
     let response_text = scraper::get(agent, url)?;
     let video_info = extract_video_info(&response_text)?;
 
+    let mut is_cached = false;
     let mut api_endpoint = {
         if VIDEO_INFO_ENDPOINT
             .read()
-            .unwrap_or_else(sync::PoisonError::into_inner)
+            .unwrap_or_else(PoisonError::into_inner)
             .is_empty()
         {
             get_actual_endpoint(agent, domain, &response_text)?
         } else {
+            is_cached = true;
             VIDEO_INFO_ENDPOINT
                 .read()
-                .unwrap_or_else(sync::PoisonError::into_inner)
+                .unwrap_or_else(PoisonError::into_inner)
                 .clone()
         }
     };
@@ -79,11 +81,13 @@ pub fn parse(agent: &Agent, url: &str) -> Result<KodikResponse, KodikError> {
     if let Ok(mut response) = response_result {
         decoder::decode_links(&mut response)?;
         Ok(response)
-    } else {
+    } else if !is_cached {
         api_endpoint = get_actual_endpoint(agent, domain, &response_text)?;
         let mut response = scraper::post(agent, domain, &api_endpoint, &video_info)?;
         decoder::decode_links(&mut response)?;
         Ok(response)
+    } else {
+        response_result
     }
 }
 
@@ -97,7 +101,7 @@ fn get_actual_endpoint(
     let api_endpoint = get_api_endpoint(&player_response_text)?;
     VIDEO_INFO_ENDPOINT
         .write()
-        .unwrap_or_else(sync::PoisonError::into_inner)
+        .unwrap_or_else(PoisonError::into_inner)
         .clone_from(&api_endpoint);
 
     Ok(api_endpoint)
