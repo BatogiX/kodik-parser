@@ -1,3 +1,6 @@
+mod cache;
+
+use cache::KodikCache;
 use kodik_parser::blocking;
 use std::{env, process::exit};
 use ureq::Agent;
@@ -17,6 +20,8 @@ fn main() {
     }
     let url = &args[1];
 
+    let mut cache = KodikCache::load();
+    cache.as_ref().map(KodikCache::apply_to_globals);
     let agent = Agent::new_with_defaults();
     let kodik_response = match blocking::parse(&agent, url) {
         Ok(kodik_response) => kodik_response,
@@ -26,6 +31,7 @@ fn main() {
         }
     };
 
+    cache.as_mut().map(KodikCache::persist_if_dirty);
     let links = &kodik_response.links;
     if let Some(link) = links
         .quality_720
@@ -33,7 +39,7 @@ fn main() {
         .or_else(|| links.quality_480.first())
         .or_else(|| links.quality_360.first())
     {
-        print!("{}", link.src);
+        println!("{}", link.src);
     } else {
         eprintln!("Error: no playable links found for this video");
         exit(1);

@@ -1,22 +1,15 @@
 //! # Kodik Parser library.
 //! `kodik-parser` for getting direct links to files from Kodik.
 
-#![deny(
-    clippy::pedantic,
-    clippy::cargo,
-    clippy::nursery,
-    missing_docs,
-    rustdoc::missing_crate_level_docs,
-    unused_imports
-)]
-
 mod decoder;
 mod error;
 mod parser;
 mod scraper;
 mod util;
 
+pub use decoder::SHIFT;
 pub use error::KodikError;
+pub use parser::VIDEO_INFO_ENDPOINT;
 pub use scraper::{KodikResponse, Link, Links};
 
 #[cfg(feature = "async-impl")]

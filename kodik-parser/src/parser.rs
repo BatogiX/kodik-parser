@@ -55,7 +55,8 @@ impl<'a> IntoIterator for &'a VideoInfo<'a> {
 
 pub fn get_domain(url: &str) -> Result<&str, KodikError> {
     static DOMAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]").unwrap()
+        Regex::new(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]")
+            .unwrap()
     });
 
     let domain = DOMAIN_REGEX
@@ -113,12 +114,17 @@ pub fn extract_video_info(response_text: &'_ str) -> Result<VideoInfo<'_>, Kodik
 
 pub fn extract_player_url(domain: &str, response_text: &str) -> Result<String, KodikError> {
     static PLAYER_PATH_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r#"<script\s*type="text/javascript"\s*src="/(assets/js/app\.player_single[^"]*)""#).unwrap()
+        Regex::new(
+            r#"<script\s*type="text/javascript"\s*src="/(assets/js/app\.player_single[^"]*)""#,
+        )
+        .unwrap()
     });
 
     let player_path = PLAYER_PATH_REGEX
         .captures(response_text)
-        .ok_or(KodikError::Regex("there is no player path in response text"))?
+        .ok_or(KodikError::Regex(
+            "there is no player path in response text",
+        ))?
         .get(1)
         .unwrap()
         .as_str();
@@ -127,12 +133,15 @@ pub fn extract_player_url(domain: &str, response_text: &str) -> Result<String, K
 }
 
 pub fn get_api_endpoint(kodik_response_text: &str) -> Result<String, KodikError> {
-    static ENDPOINT_REGEX: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r#"\$\.ajax\([^>]+,url:\s*atob\(["\']([\w=]+)["\']\)"#).unwrap());
+    static ENDPOINT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#"\$\.ajax\([^>]+,url:\s*atob\(["\']([\w=]+)["\']\)"#).unwrap()
+    });
 
     let encoded_api_endpoint = ENDPOINT_REGEX
         .captures(kodik_response_text)
-        .ok_or(KodikError::Regex("there is no api endpoint in player response"))?
+        .ok_or(KodikError::Regex(
+            "there is no api endpoint in player response",
+        ))?
         .get(1)
         .unwrap()
         .as_str();
@@ -146,7 +155,8 @@ mod tests {
 
     #[test]
     fn getting_domain() {
-        let url_with_scheme = "https://kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
+        let url_with_scheme =
+            "https://kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
         let url_without_scheme = "kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
 
         assert_eq!("kodik.info", get_domain(url_with_scheme).unwrap());
@@ -155,7 +165,8 @@ mod tests {
 
     #[test]
     fn extracting_video_info() {
-        let expected_video_info = VideoInfo::new("video", "060cab655974d46835b3f4405807acc2", "91873");
+        let expected_video_info =
+            VideoInfo::new("video", "060cab655974d46835b3f4405807acc2", "91873");
 
         let response_text = "
   var videoInfo = {};

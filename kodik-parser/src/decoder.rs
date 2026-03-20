@@ -4,7 +4,7 @@ use base64::{Engine as _, engine::general_purpose};
 
 use crate::{error::KodikError, scraper::KodikResponse};
 
-static SHIFT: AtomicU8 = AtomicU8::new(0);
+pub static SHIFT: AtomicU8 = AtomicU8::new(0);
 
 pub fn decode_links(kodik_response: &mut KodikResponse) -> Result<(), KodikError> {
     for link_360 in &mut kodik_response.links.quality_360 {

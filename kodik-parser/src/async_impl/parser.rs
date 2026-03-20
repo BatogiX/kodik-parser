@@ -6,7 +6,9 @@ use crate::{
     async_impl::scraper,
     decoder,
     error::KodikError,
-    parser::{VIDEO_INFO_ENDPOINT, extract_player_url, extract_video_info, get_api_endpoint, get_domain},
+    parser::{
+        VIDEO_INFO_ENDPOINT, extract_player_url, extract_video_info, get_api_endpoint, get_domain,
+    },
     scraper::KodikResponse,
 };
 
@@ -58,29 +60,44 @@ pub async fn parse(client: &Client, url: &str) -> Result<KodikResponse, KodikErr
     let response_text = scraper::get(client, url).await?;
     let video_info = extract_video_info(&response_text)?;
 
-    let api_endpoint = {
+    let mut api_endpoint = {
         if VIDEO_INFO_ENDPOINT
             .read()
             .unwrap_or_else(sync::PoisonError::into_inner)
             .is_empty()
         {
-            let player_url = extract_player_url(domain, &response_text)?;
-            let player_response_text = scraper::get(client, &player_url).await?;
-            *VIDEO_INFO_ENDPOINT
-                .write()
-                .unwrap_or_else(sync::PoisonError::into_inner) = get_api_endpoint(&player_response_text)?;
+            get_actual_endpoint(client, domain, &response_text).await?
+        } else {
+            VIDEO_INFO_ENDPOINT.read().unwrap_or_else(sync::PoisonError::into_inner).clone()
         }
-
-        VIDEO_INFO_ENDPOINT
-            .read()
-            .unwrap_or_else(sync::PoisonError::into_inner)
-            .clone()
     };
 
-    let mut kodik_response = scraper::post(client, domain, &api_endpoint, &video_info).await?;
-    decoder::decode_links(&mut kodik_response)?;
+    let response_result = scraper::post(client, domain, &api_endpoint, &video_info).await;
+    if let Ok(mut response) = response_result {
+        decoder::decode_links(&mut response)?;
+        Ok(response)
+    } else {
+        api_endpoint = get_actual_endpoint(client, domain, &response_text).await?;
+        let mut response = scraper::post(client, domain, &api_endpoint, &video_info).await?;
+        decoder::decode_links(&mut response)?;
+        Ok(response)
+    }
+}
 
-    Ok(kodik_response)
+async fn get_actual_endpoint(
+    client: &Client,
+    domain: &str,
+    response_text: &str,
+) -> Result<String, KodikError> {
+    let player_url = extract_player_url(domain, response_text)?;
+    let player_response_text = scraper::get(client, &player_url).await?;
+    let api_endpoint = get_api_endpoint(&player_response_text)?;
+    VIDEO_INFO_ENDPOINT
+        .write()
+        .unwrap_or_else(sync::PoisonError::into_inner)
+        .clone_from(&api_endpoint);
+
+    Ok(api_endpoint)
 }
 
 #[cfg(test)]

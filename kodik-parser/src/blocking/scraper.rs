@@ -1,36 +1,45 @@
-use reqwest::{
-    Client,
-    header::{ACCEPT, HeaderName, ORIGIN, REFERER, USER_AGENT},
+use ureq::{
+    Agent,
+    http::{
+        HeaderName,
+        header::{ACCEPT, ORIGIN, REFERER, USER_AGENT},
+    },
 };
 
 use crate::{error::KodikError, parser::VideoInfo, scraper::KodikResponse, util};
 
-pub async fn get(client: &Client, url: &str) -> Result<String, KodikError> {
-    let agent = util::spoof_random_ua();
+pub fn get(agent: &Agent, url: &str) -> Result<String, KodikError> {
+    let ua_header = util::spoof_random_ua();
 
-    let response_text = client.get(url).header(USER_AGENT, agent).send().await?.text().await?;
+    let response_text = agent
+        .get(url)
+        .header(USER_AGENT, ua_header)
+        .call()?
+        .body_mut()
+        .read_to_string()?;
 
     Ok(response_text)
 }
 
-pub async fn post(
-    client: &Client,
+pub fn post(
+    agent: &Agent,
     domain: &str,
     api_endpoint: &str,
     video_info: &VideoInfo<'_>,
 ) -> Result<KodikResponse, KodikError> {
-    let kodik_response = client
+    let kodik_response = agent
         .post(format!("https://{domain}{api_endpoint}"))
         .header(ORIGIN, format!("https://{domain}"))
         .header(ACCEPT, "application/json, text/javascript, */*; q=0.01")
         .header(REFERER, format!("https://{domain}"))
         .header(USER_AGENT, util::spoof_random_ua())
-        .header(HeaderName::from_static("x-requested-with"), "XMLHttpRequest")
-        .form(&video_info)
-        .send()
-        .await?
-        .json()
-        .await?;
+        .header(
+            HeaderName::from_static("x-requested-with"),
+            "XMLHttpRequest",
+        )
+        .send_form(video_info)?
+        .body_mut()
+        .read_json()?;
 
     Ok(kodik_response)
 }
@@ -39,21 +48,21 @@ pub async fn post(
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn get_test() {
-        let client = Client::new();
+    #[test]
+    fn get_test() {
+        let agent = Agent::new_with_defaults();
         let url = "https://kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
-        let response_text = get(&client, url).await.unwrap();
+        let response_text = get(&agent, url).unwrap();
         println!("{response_text:#?}");
     }
 
-    #[tokio::test]
-    async fn post_test() {
-        let client = Client::new();
+    #[test]
+    fn post_test() {
+        let agent = Agent::new_with_defaults();
         let domain = "kodik.info";
         let api_endpoint = "/ftor";
         let video_info = VideoInfo::new("video", "060cab655974d46835b3f4405807acc2", "91873");
-        let kodik_response = post(&client, domain, api_endpoint, &video_info).await.unwrap();
+        let kodik_response = post(&agent, domain, api_endpoint, &video_info).unwrap();
         println!("{kodik_response:#?}");
     }
 }
