@@ -7,6 +7,7 @@ use ureq::Agent;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
+
     if args.len() < 2 {
         eprintln!("Usage: {} <url>", args[0]);
         exit(1);
@@ -23,6 +24,7 @@ fn main() {
     let mut cache = KodikCache::load();
     cache.as_ref().map(KodikCache::apply_to_globals);
     let agent = Agent::new_with_defaults();
+
     let kodik_response = match blocking::parse(&agent, url) {
         Ok(kodik_response) => kodik_response,
         Err(e) => {
@@ -33,6 +35,7 @@ fn main() {
 
     cache.as_mut().map(KodikCache::persist_if_dirty);
     let links = &kodik_response.links;
+
     if let Some(link) = links
         .quality_720
         .first()

@@ -7,6 +7,7 @@ use crate::decoder;
 use crate::error::KodikError;
 use regex::Regex;
 use serde::Serialize;
+
 pub static VIDEO_INFO_ENDPOINT: RwLock<String> = RwLock::new(String::new());
 
 #[derive(Debug, Serialize, PartialEq, Eq)]

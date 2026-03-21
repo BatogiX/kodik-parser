@@ -139,19 +139,19 @@ mod tests {
         quality_360: vec![
             Link {
                 src: "iPZ0kPU6Tg9eVBGci29siEaciE5ujg9hT20dBPs5iuRPWBNiYhDgGrRAkON5UFxsZht5EDlsjMfbBvHqChsfGhREmEZGYvVqUsHzG3s4ms9Ci3tHjDxwB1UeVDtyGhVUDNM0EtZRlM9PEuxHChI1EslAjDtCHhDVmtRwB0ZDThM1GrQgVBtsWBs1GhHrVEC1V2Y0VuVuVrGeVBGeVrHpUBM2UuG3UhZqVBJrGBZuGhM5UrHpGBHuUro0V2UeUBI6UrIgVBI4UBYgUA8hVrIcjFI0WupakhxbGE5xHuDhlK5bU3C4".to_owned(),
-                r#type: "application/x-mpegURL".to_owned(),
+                r#type: "application/x-mpegURL".to_owned()
             },
         ],
         quality_480: vec![
             Link {
                 src: "iPZ0kPU6Tg9eUhYci29siEaciE5ujg9hT20dBPs5iuRPWBNiYhDgGrRAkON5UFxsZht5EDlsjMfbBvHqChsfGhREmEZGYvVqUsHzG3s4ms9Ci3tHjDxwB1UeVDtyGhVUDNM0EtZRlM9PEuxHChI1EslAjDtCHhDVmtRwB0ZDThM1GrQgVBtsWBs1GhHrVEC1V2Y0VuVuVrGeVBGeVrHpUBM2UuG3UhZqVBJrGBZuGhM5UrHpGBHuUro0V2UeUBI6UrIgVBI4UBYgUA80WLIcjFI0WupakhxbGE5xHuDhlK5bU3C4".to_owned(),
-                r#type: "application/x-mpegURL".to_owned(),
+                r#type: "application/x-mpegURL".to_owned()
             },
         ],
         quality_720: vec![
             Link {
                 src: "iPZ0kPU6Tg9eVBGci29siEaciE5ujg9hT20dBPs5iuRPWBNiYhDgGrRAkON5UFxsZht5EDlsjMfbBvHqChsfGhREmEZGYvVqUsHzG3s4ms9Ci3tHjDxwB1UeVDtyGhVUDNM0EtZRlM9PEuxHChI1EslAjDtCHhDVmtRwB0ZDThM1GrQgVBtsWBs1GhHrVEC1V2Y0VuVuVrGeVBGeVrHpUBM2UuG3UhZqVBJrGBZuGhM5UrHpGBHuUro0V2UeUBI6UrIgVBI4UBYgUA80WLIcjFI0WupakhxbGE5xHuDhlK5bU3C4".to_owned(),
-                r#type: "application/x-mpegURL".to_owned(),
+                r#type: "application/x-mpegURL".to_owned()
             },
         ],
     },
@@ -160,15 +160,15 @@ mod tests {
 
         assert_eq!(
             "https://p56.kodik.info/s/m/Ly9jbG91ZC5rb2Rpay1zdG9yYWdlLmNvbS91c2VydXBsb2Fkcy8zOTkyYmZhOS05Yjc3LTQ4ZTItOGZjYS05ZGRmYTg5MzRhODU/15b2259d995c6c5e57d46cf66056066a1162f734b50ca4fc1926aa6f2847c010:2025081421/360.mp4:hls:manifest.m3u8",
-            kodik_response.links.quality_360.first().unwrap().src
+            kodik_response.links.quality_360[0].src
         );
         assert_eq!(
             "https://p56.kodik.info/s/m/Ly9jbG91ZC5rb2Rpay1zdG9yYWdlLmNvbS91c2VydXBsb2Fkcy8zOTkyYmZhOS05Yjc3LTQ4ZTItOGZjYS05ZGRmYTg5MzRhODU/15b2259d995c6c5e57d46cf66056066a1162f734b50ca4fc1926aa6f2847c010:2025081421/480.mp4:hls:manifest.m3u8",
-            kodik_response.links.quality_480.first().unwrap().src
+            kodik_response.links.quality_480[0].src
         );
         assert_eq!(
             "https://p56.kodik.info/s/m/Ly9jbG91ZC5rb2Rpay1zdG9yYWdlLmNvbS91c2VydXBsb2Fkcy8zOTkyYmZhOS05Yjc3LTQ4ZTItOGZjYS05ZGRmYTg5MzRhODU/15b2259d995c6c5e57d46cf66056066a1162f734b50ca4fc1926aa6f2847c010:2025081421/720.mp4:hls:manifest.m3u8",
-            kodik_response.links.quality_720.first().unwrap().src
+            kodik_response.links.quality_720[0].src
         );
     }
 }
