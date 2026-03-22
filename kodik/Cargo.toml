@@ -12,18 +12,18 @@ readme = "README.md"
 description = "A Rust library for getting direct links to files from Kodik."
 
 [dependencies]
+log.workspace = true
 directories = { version = "6", default-features = false }
 serde_json = "1"
-serde.workspace = true
+env_logger = { version = "0.11.9", default-features = false }
+
+[dependencies.serde]
+workspace = true
+features = ["rc"]
 
 [dependencies.kodik-parser]
 path = "../kodik-parser"
 features = ["blocking"]
-
-[dependencies.ureq]
-version = "3"
-default-features = false
-features = ["json","rustls"]
 
 [profile.release]
 lto = true

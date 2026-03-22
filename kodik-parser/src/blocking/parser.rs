@@ -1,15 +1,12 @@
-use std::sync::PoisonError;
-
 use ureq::Agent;
 
 use crate::{
-    blocking::scraper,
+    blocking::{scraper, util::update_endpoint},
     decoder,
     error::KodikError,
-    parser::{
-        VIDEO_INFO_ENDPOINT, extract_player_url, extract_video_info, get_api_endpoint, get_domain,
-    },
+    parser::{extract_domain, extract_video_info},
     scraper::KodikResponse,
+    util,
 };
 
 /// Parses a Kodik player page synchronously and returns structured video stream information.
@@ -56,55 +53,31 @@ use crate::{
 /// # }
 /// ```
 pub fn parse(agent: &Agent, url: &str) -> Result<KodikResponse, KodikError> {
-    let domain = get_domain(url)?;
+    let domain = extract_domain(url)?;
+
     let response_text = scraper::get(agent, url)?;
+
     let video_info = extract_video_info(&response_text)?;
+    let is_cached = !util::get_endpoint().is_empty();
+    if !is_cached {
+        update_endpoint(agent, domain, &response_text)?;
+    }
+    let mut endpoint = util::get_endpoint();
 
-    let mut is_cached = false;
-    let mut api_endpoint = {
-        if VIDEO_INFO_ENDPOINT
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .is_empty()
-        {
-            get_actual_endpoint(agent, domain, &response_text)?
-        } else {
-            is_cached = true;
-            VIDEO_INFO_ENDPOINT
-                .read()
-                .unwrap_or_else(PoisonError::into_inner)
-                .clone()
-        }
-    };
+    let response_result = scraper::post(agent, domain, &endpoint, &video_info);
 
-    let response_result = scraper::post(agent, domain, &api_endpoint, &video_info);
     if let Ok(mut response) = response_result {
         decoder::decode_links(&mut response)?;
         Ok(response)
-    } else if !is_cached {
-        api_endpoint = get_actual_endpoint(agent, domain, &response_text)?;
-        let mut response = scraper::post(agent, domain, &api_endpoint, &video_info)?;
+    } else if is_cached {
+        update_endpoint(agent, domain, &response_text)?;
+        endpoint = util::get_endpoint();
+        let mut response = scraper::post(agent, domain, &endpoint, &video_info)?;
         decoder::decode_links(&mut response)?;
         Ok(response)
     } else {
         response_result
     }
-}
-
-fn get_actual_endpoint(
-    agent: &Agent,
-    domain: &str,
-    response_text: &str,
-) -> Result<String, KodikError> {
-    let player_url = extract_player_url(domain, response_text)?;
-    let player_response_text = scraper::get(agent, &player_url)?;
-    let api_endpoint = get_api_endpoint(&player_response_text)?;
-    VIDEO_INFO_ENDPOINT
-        .write()
-        .unwrap_or_else(PoisonError::into_inner)
-        .clone_from(&api_endpoint);
-
-    Ok(api_endpoint)
 }
 
 #[cfg(test)]

@@ -6,6 +6,11 @@ use crate::{error::KodikError, scraper::KodikResponse};
 
 pub static SHIFT: AtomicU8 = AtomicU8::new(0);
 
+/// Decodes links in the Kodik response.
+///
+/// # Errors
+///
+/// Returns a `KodikError` if decoding fails for any of the links.
 pub fn decode_links(kodik_response: &mut KodikResponse) -> Result<(), KodikError> {
     for link_360 in &mut kodik_response.links.quality_360 {
         link_360.src = decode_link(&link_360.src)?;
@@ -83,6 +88,11 @@ fn caesar_cipher(text: &str, shift: u8) -> String {
         .collect()
 }
 
+/// Decodes a base64-encoded string.
+///
+/// # Errors
+///
+/// Returns a `KodikError` if decoding fails due to invalid base64 input or invalid UTF-8.
 pub fn b64(input: &str) -> Result<String, KodikError> {
     let decoded_input = general_purpose::STANDARD.decode(input)?;
 

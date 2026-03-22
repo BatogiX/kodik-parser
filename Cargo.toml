@@ -6,11 +6,8 @@ members = [
 resolver = "3"
 
 [workspace.dependencies]
-base64 = "0.22"
-regex = "1"
 serde = { version = "1", features = ["derive"] }
-ua_generator = { version = "0.5", default-features = false }
-thiserror = { version = "2", default-features = false }
+log = { version = "0.4.29", default-features = false }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

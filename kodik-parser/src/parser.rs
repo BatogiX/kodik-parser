@@ -1,14 +1,13 @@
-use std::{
-    array::IntoIter,
-    sync::{LazyLock, RwLock},
-};
+use std::{array::IntoIter, sync::LazyLock};
 
 use crate::decoder;
 use crate::error::KodikError;
+use arc_swap::ArcSwap;
 use regex::Regex;
 use serde::Serialize;
 
-pub static VIDEO_INFO_ENDPOINT: RwLock<String> = RwLock::new(String::new());
+pub static VIDEO_INFO_ENDPOINT: LazyLock<ArcSwap<String>> =
+    LazyLock::new(|| ArcSwap::from_pointee(String::new()));
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct VideoInfo<'a> {
@@ -21,6 +20,7 @@ pub struct VideoInfo<'a> {
 }
 
 impl<'a> VideoInfo<'a> {
+    #[must_use]
     pub const fn new(r#type: &'a str, hash: &'a str, id: &'a str) -> Self {
         Self {
             r#type,
@@ -54,7 +54,12 @@ impl<'a> IntoIterator for &'a VideoInfo<'a> {
     }
 }
 
-pub fn get_domain(url: &str) -> Result<&str, KodikError> {
+/// Extracts the domain from a URL.
+///
+/// # Errors
+///
+/// Returns `KodikError::Regex` if no valid domain is found in the URL.
+pub fn extract_domain(url: &str) -> Result<&str, KodikError> {
     static DOMAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]")
             .unwrap()
@@ -67,6 +72,11 @@ pub fn get_domain(url: &str) -> Result<&str, KodikError> {
     Ok(domain.as_str())
 }
 
+/// Extracts video information from response text.
+///
+/// # Errors
+///
+/// Returns `KodikError::Regex` if any of the required video fields (type, hash, id) are not found in the response text.
 pub fn extract_video_info(response_text: &'_ str) -> Result<VideoInfo<'_>, KodikError> {
     static VIDEO_INFO_REGEX: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\.(?P<field>type|hash|id) = '(?P<value>.*?)';").unwrap());
@@ -113,6 +123,15 @@ pub fn extract_video_info(response_text: &'_ str) -> Result<VideoInfo<'_>, Kodik
     Ok(VideoInfo::new(r#type, hash, id))
 }
 
+/// Extracts the player URL from response text.
+///
+/// # Errors
+///
+/// Returns `KodikError::Regex` if the player path is not found in the response text.
+///
+/// # Panics
+///
+/// Panics if the regex capture group is not found, which should not happen if the regex is correct.
 pub fn extract_player_url(domain: &str, response_text: &str) -> Result<String, KodikError> {
     static PLAYER_PATH_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
@@ -133,6 +152,15 @@ pub fn extract_player_url(domain: &str, response_text: &str) -> Result<String, K
     Ok(format!("https://{domain}/{player_path}"))
 }
 
+/// Extracts the API endpoint from player response text.
+///
+/// # Errors
+///
+/// Returns `KodikError::Regex` if the API endpoint is not found in the player response text.
+///
+/// # Panics
+///
+/// Panics if the regex capture group is not found, which should not happen if the regex is correct.
 pub fn get_api_endpoint(kodik_response_text: &str) -> Result<String, KodikError> {
     static ENDPOINT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r#"\$\.ajax\([^>]+,url:\s*atob\(["\']([\w=]+)["\']\)"#).unwrap()
@@ -160,8 +188,8 @@ mod tests {
             "https://kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
         let url_without_scheme = "kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
 
-        assert_eq!("kodik.info", get_domain(url_with_scheme).unwrap());
-        assert_eq!("kodik.info", get_domain(url_without_scheme).unwrap());
+        assert_eq!("kodik.info", extract_domain(url_with_scheme).unwrap());
+        assert_eq!("kodik.info", extract_domain(url_without_scheme).unwrap());
     }
 
     #[test]

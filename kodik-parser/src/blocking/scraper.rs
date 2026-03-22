@@ -8,6 +8,11 @@ use ureq::{
 
 use crate::{error::KodikError, parser::VideoInfo, scraper::KodikResponse, util};
 
+/// Fetches the content of a URL using the provided HTTP agent.
+///
+/// # Errors
+///
+/// Returns a `KodikError` if the HTTP request fails or if reading the response body fails.
 pub fn get(agent: &Agent, url: &str) -> Result<String, KodikError> {
     let ua_header = util::spoof_random_ua();
 
@@ -21,6 +26,11 @@ pub fn get(agent: &Agent, url: &str) -> Result<String, KodikError> {
     Ok(response_text)
 }
 
+/// Fetches video information from the Kodik API using the provided HTTP agent.
+///
+/// # Errors
+///
+/// Returns a `KodikError` if the HTTP request fails or if parsing the response JSON fails.
 pub fn post(
     agent: &Agent,
     domain: &str,

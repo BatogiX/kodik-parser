@@ -1,6 +1,6 @@
 //! Blocking implementation module
 mod parser;
-
-mod scraper;
+pub mod scraper;
+pub mod util;
 
 pub use parser::parse;

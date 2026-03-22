@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use reqwest::{
     Client,
     header::{ACCEPT, HeaderName, ORIGIN, REFERER, USER_AGENT},
@@ -21,11 +23,11 @@ pub async fn get(client: &Client, url: &str) -> Result<String, KodikError> {
 pub async fn post(
     client: &Client,
     domain: &str,
-    api_endpoint: &str,
+    endpoint: &Arc<String>,
     video_info: &VideoInfo<'_>,
 ) -> Result<KodikResponse, KodikError> {
     let kodik_response = client
-        .post(format!("https://{domain}{api_endpoint}"))
+        .post(format!("https://{domain}{endpoint}"))
         .header(ORIGIN, format!("https://{domain}"))
         .header(ACCEPT, "application/json, text/javascript, */*; q=0.01")
         .header(REFERER, format!("https://{domain}"))
@@ -51,19 +53,15 @@ mod tests {
     async fn get_test() {
         let client = Client::new();
         let url = "https://kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
-        let response_text = get(&client, url).await.unwrap();
-        println!("{response_text:#?}");
+        get(&client, url).await.unwrap();
     }
 
     #[tokio::test]
     async fn post_test() {
         let client = Client::new();
         let domain = "kodik.info";
-        let api_endpoint = "/ftor";
+        let endpoint = Arc::new("/ftor".to_string());
         let video_info = VideoInfo::new("video", "060cab655974d46835b3f4405807acc2", "91873");
-        let kodik_response = post(&client, domain, api_endpoint, &video_info)
-            .await
-            .unwrap();
-        println!("{kodik_response:#?}");
+        post(&client, domain, &endpoint, &video_info).await.unwrap();
     }
 }

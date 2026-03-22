@@ -1,11 +1,11 @@
 use std::{
     fs::{self, File, OpenOptions},
     path::PathBuf,
-    sync::{LazyLock, PoisonError, atomic::Ordering},
+    sync::{Arc, LazyLock},
 };
 
 use directories::BaseDirs;
-use kodik_parser::{SHIFT, VIDEO_INFO_ENDPOINT};
+use kodik_parser::util::{get_endpoint, get_shift, set_endpoint, set_shift};
 use serde::{Deserialize, Serialize};
 
 static CACHE_PATH: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
@@ -15,7 +15,7 @@ static CACHE_PATH: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct KodikCache {
     pub shift: u8,
-    pub video_info_endpoint: String,
+    pub video_info_endpoint: Arc<String>,
 }
 
 impl KodikCache {
@@ -41,38 +41,19 @@ impl KodikCache {
         serde_json::to_writer_pretty(file, self).ok()
     }
 
-    fn update(&mut self) {
-        self.shift = SHIFT.load(Ordering::Relaxed);
-        self.video_info_endpoint.clone_from(
-            &VIDEO_INFO_ENDPOINT
-                .read()
-                .unwrap_or_else(PoisonError::into_inner),
-        );
-
+    pub fn update(&mut self) {
+        self.shift = get_shift();
+        self.video_info_endpoint.clone_from(&get_endpoint());
         self.save();
     }
 
-    fn is_changed(&self) -> bool {
-        self.shift != SHIFT.load(Ordering::Relaxed)
-            || self.video_info_endpoint
-                != VIDEO_INFO_ENDPOINT
-                    .read()
-                    .unwrap_or_else(PoisonError::into_inner)
-                    .as_str()
+    pub fn is_changed(&self) -> bool {
+        self.shift != get_shift() || self.video_info_endpoint.as_str() != get_endpoint().as_str()
     }
 
     pub fn apply_to_globals(&self) {
-        SHIFT.store(self.shift, Ordering::Relaxed);
-        VIDEO_INFO_ENDPOINT
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
-            .clone_from(&self.video_info_endpoint);
-    }
-
-    pub fn persist_if_dirty(&mut self) {
-        if self.is_changed() {
-            self.update();
-        }
+        set_shift(self.shift);
+        set_endpoint(Arc::clone(&self.video_info_endpoint));
     }
 }
 
@@ -88,7 +69,7 @@ mod tests {
             let cache_path = CACHE_PATH.as_ref().unwrap();
             let cache = KodikCache {
                 shift: 13,
-                video_info_endpoint: "/abcd".to_owned(),
+                video_info_endpoint: Arc::from("/abcd".to_owned()),
             };
             let file = OpenOptions::new().write(true).open(cache_path).unwrap();
             serde_json::to_writer_pretty(file, &cache).unwrap();
