@@ -1,6 +1,7 @@
 //! # Kodik Parser library.
 //! `kodik-parser` for getting direct links to files from Kodik.
 
+pub mod cache;
 pub mod decoder;
 pub mod error;
 pub mod parser;
