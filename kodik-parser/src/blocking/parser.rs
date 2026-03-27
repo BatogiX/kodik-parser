@@ -87,6 +87,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "requires network access"]
     fn blocking_parse() {
         let agent = Agent::new_with_defaults();
         let url = "https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p";
