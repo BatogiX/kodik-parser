@@ -38,8 +38,10 @@ impl<'a> VideoInfo<'a> {
     ///
     /// Returns `KodikError::Regex` if any of the required video fields (type, hash, id) are not found in the response text.
     pub fn from_response(response_text: &'_ str) -> Result<VideoInfo<'_>, KodikError> {
-        static VIDEO_INFO_REGEX: LazyLock<Regex> =
-            LazyLock::new(|| Regex::new(r"\.(?P<field>type|hash|id) = '(?P<value>.*?)';").unwrap());
+        static FROM_RESPONSE_RE: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"\.(?P<field>type|hash|id) = '(?P<value>.*?)';")
+                .expect("valid regex syntax")
+        });
 
         log::debug!("Extracting video info...");
         let (r#type, hash, id) = {
@@ -47,7 +49,7 @@ impl<'a> VideoInfo<'a> {
             let mut hash = None;
             let mut id = None;
 
-            for caps in VIDEO_INFO_REGEX.captures_iter(response_text) {
+            for caps in FROM_RESPONSE_RE.captures_iter(response_text) {
                 match &caps["field"] {
                     "type" => {
                         video_type = Some(
@@ -93,10 +95,11 @@ impl<'a> VideoInfo<'a> {
     ///
     /// Returns `KodikError::Regex` if the video information (type, hash, id) is not found in the URL.
     pub fn from_url(url: &'_ str) -> Result<VideoInfo<'_>, KodikError> {
-        static VIDEO_INFO_REGEX: LazyLock<Regex> =
-            LazyLock::new(|| Regex::new(r"/([^/]+)/(\d+)/([a-z0-9]+)").unwrap());
+        static FROM_URL_RE: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"/([^/]+)/(\d+)/([a-z0-9]+)").expect("valid regex syntax")
+        });
 
-        if let Some(caps) = VIDEO_INFO_REGEX.captures(url) {
+        if let Some(caps) = FROM_URL_RE.captures(url) {
             let r#type = caps
                 .get(1)
                 .ok_or(KodikError::Regex("videoInfo.type not found"))?
@@ -146,7 +149,7 @@ impl<'a> IntoIterator for &'a VideoInfo<'a> {
 pub fn extract_domain(url: &str) -> Result<&str, KodikError> {
     static DOMAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]")
-            .unwrap()
+            .expect("valid regex syntax")
     });
 
     log::debug!("Extracting domain...");
@@ -172,7 +175,7 @@ pub fn extract_player_url(domain: &str, response_text: &str) -> Result<String, K
         Regex::new(
             r#"<script\s*type="text/javascript"\s*src="/(assets/js/app\.player_single[^"]*)""#,
         )
-        .unwrap()
+        .expect("valid regex syntax")
     });
 
     let player_path = PLAYER_PATH_REGEX
@@ -198,7 +201,8 @@ pub fn extract_player_url(domain: &str, response_text: &str) -> Result<String, K
 /// Panics if the regex capture group is not found, which should not happen if the regex is correct.
 pub fn extract_api_endpoint(response_text: &str) -> Result<String, KodikError> {
     static ENDPOINT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r#"\$\.ajax\([^>]+,url:\s*atob\(["\']([\w=]+)["\']\)"#).unwrap()
+        Regex::new(r#"\$\.ajax\([^>]+,url:\s*atob\(["\']([\w=]+)["\']\)"#)
+            .expect("valid regex syntax")
     });
 
     let encoded_api_endpoint = ENDPOINT_REGEX
