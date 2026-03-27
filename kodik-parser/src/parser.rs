@@ -87,6 +87,35 @@ impl<'a> VideoInfo<'a> {
         Ok(video_info)
     }
 
+    /// Extracts video information from URL.
+    ///
+    /// # Errors
+    ///
+    /// Returns `KodikError::Regex` if the video information (type, hash, id) is not found in the URL.
+    pub fn from_url(url: &'_ str) -> Result<VideoInfo<'_>, KodikError> {
+        static VIDEO_INFO_REGEX: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"/([^/]+)/(\d+)/([a-z0-9]+)").unwrap());
+
+        if let Some(caps) = VIDEO_INFO_REGEX.captures(url) {
+            let r#type = caps
+                .get(1)
+                .ok_or(KodikError::Regex("videoInfo.type not found"))?
+                .as_str();
+            let id = caps
+                .get(2)
+                .ok_or(KodikError::Regex("videoInfo.id not found"))?
+                .as_str();
+            let hash = caps
+                .get(3)
+                .ok_or(KodikError::Regex("videoInfo.hash not found"))?
+                .as_str();
+
+            Ok(VideoInfo::new(r#type, hash, id))
+        } else {
+            Err(KodikError::Regex("videoInfo not found"))
+        }
+    }
+
     fn iter(&'a self) -> IntoIter<(&'a str, &'a str), 6> {
         [
             ("type", self.r#type),
@@ -203,7 +232,7 @@ mod tests {
     }
 
     #[test]
-    fn extracting_video_info() {
+    fn v_info_from_response_test() {
         let expected_video_info =
             VideoInfo::new("video", "060cab655974d46835b3f4405807acc2", "91873");
 
@@ -215,6 +244,17 @@ mod tests {
 </script>";
 
         let video_info = VideoInfo::from_response(response_text).unwrap();
+
+        assert_eq!(expected_video_info, video_info);
+    }
+
+    #[test]
+    fn v_info_from_url_test() {
+        let expected_video_info =
+            VideoInfo::new("video", "060cab655974d46835b3f4405807acc2", "91873");
+
+        let url = "https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2";
+        let video_info = VideoInfo::from_url(url).unwrap();
 
         assert_eq!(expected_video_info, video_info);
     }
