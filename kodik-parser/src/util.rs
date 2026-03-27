@@ -6,7 +6,11 @@ use crate::{SHIFT, VIDEO_INFO_ENDPOINT};
 
 pub fn spoof_random_ua() -> &'static str {
     static AGENTS: LazyLock<&'static Vec<&'static str>> = LazyLock::new(ua::all_static_agents);
-    AGENTS[fastrand::usize(..AGENTS.len())]
+    log::debug!("Spoofing random user agent...");
+    let ua = AGENTS[fastrand::usize(..AGENTS.len())];
+    log::trace!("Spoofed user agent: {ua}");
+
+    ua
 }
 
 pub fn get_endpoint() -> Arc<String> {

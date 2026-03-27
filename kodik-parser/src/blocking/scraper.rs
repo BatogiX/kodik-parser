@@ -16,12 +16,16 @@ use crate::{error::KodikError, parser::VideoInfo, scraper::KodikResponse, util};
 pub fn get(agent: &Agent, url: &str) -> Result<String, KodikError> {
     let ua_header = util::spoof_random_ua();
 
+    log::debug!("Fetching response...");
+
     let response_text = agent
         .get(url)
         .header(USER_AGENT, ua_header)
         .call()?
         .body_mut()
         .read_to_string()?;
+
+    log::trace!("Fetched to {url}, response: {response_text}");
 
     Ok(response_text)
 }
@@ -37,12 +41,16 @@ pub fn post(
     api_endpoint: &str,
     video_info: &VideoInfo<'_>,
 ) -> Result<KodikResponse, KodikError> {
+    let ua_header = util::spoof_random_ua();
+
+    log::debug!("Posting to endpoint...");
+
     let kodik_response = agent
         .post(format!("https://{domain}{api_endpoint}"))
         .header(ORIGIN, format!("https://{domain}"))
         .header(ACCEPT, "application/json, text/javascript, */*; q=0.01")
         .header(REFERER, format!("https://{domain}"))
-        .header(USER_AGENT, util::spoof_random_ua())
+        .header(USER_AGENT, ua_header)
         .header(
             HeaderName::from_static("x-requested-with"),
             "XMLHttpRequest",
@@ -50,6 +58,8 @@ pub fn post(
         .send_form(video_info)?
         .body_mut()
         .read_json()?;
+
+    log::trace!("POST Response: {kodik_response:#?}");
 
     Ok(kodik_response)
 }
@@ -61,7 +71,7 @@ mod tests {
     #[test]
     fn get_test() {
         let agent = Agent::new_with_defaults();
-        let url = "https://kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
+        let url = "https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p";
         let response_text = get(&agent, url).unwrap();
         println!("{response_text:#?}");
     }
@@ -69,7 +79,7 @@ mod tests {
     #[test]
     fn post_test() {
         let agent = Agent::new_with_defaults();
-        let domain = "kodik.info";
+        let domain = "kodikplayer.com";
         let api_endpoint = "/ftor";
         let video_info = VideoInfo::new("video", "060cab655974d46835b3f4405807acc2", "91873");
         let kodik_response = post(&agent, domain, api_endpoint, &video_info).unwrap();

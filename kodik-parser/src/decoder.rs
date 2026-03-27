@@ -12,6 +12,8 @@ pub static SHIFT: AtomicU8 = AtomicU8::new(0);
 ///
 /// Returns a `KodikError` if decoding fails for any of the links.
 pub fn decode_links(kodik_response: &mut KodikResponse) -> Result<(), KodikError> {
+    log::debug!("Decoding links...");
+
     for link_360 in &mut kodik_response.links.quality_360 {
         link_360.src = decode_link(&link_360.src)?;
     }
@@ -39,6 +41,8 @@ pub fn decode_links(kodik_response: &mut KodikResponse) -> Result<(), KodikError
             }
         }
     }
+
+    log::trace!("Decoded links: {:#?}", kodik_response.links);
 
     Ok(())
 }

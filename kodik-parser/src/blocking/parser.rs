@@ -4,7 +4,7 @@ use crate::{
     blocking::{scraper, util::update_endpoint},
     decoder,
     error::KodikError,
-    parser::{extract_domain, extract_video_info},
+    parser::{VideoInfo, extract_domain},
     scraper::KodikResponse,
     util,
 };
@@ -45,7 +45,7 @@ use crate::{
 ///
 /// # fn run() {
 /// let agent = Agent::new_with_defaults();
-/// let url = "https://kodik.info/some-type/some-id/some-hash/some-quality";
+/// let url = "https://kodikplayer.com/some-type/some-id/some-hash/some-quality";
 /// let kodik_response = blocking::parse(&agent, url).unwrap();
 ///
 /// let link_720 = &kodik_response.links.quality_720.first().unwrap().src;
@@ -57,9 +57,10 @@ pub fn parse(agent: &Agent, url: &str) -> Result<KodikResponse, KodikError> {
 
     let response_text = scraper::get(agent, url)?;
 
-    let video_info = extract_video_info(&response_text)?;
+    let video_info = VideoInfo::from_response(&response_text)?;
     let is_cached = !util::get_endpoint().is_empty();
     if !is_cached {
+        log::warn!("Endpoint not found in cache, updating...");
         update_endpoint(agent, domain, &response_text)?;
     }
     let mut endpoint = util::get_endpoint();
@@ -70,6 +71,7 @@ pub fn parse(agent: &Agent, url: &str) -> Result<KodikResponse, KodikError> {
         decoder::decode_links(&mut response)?;
         Ok(response)
     } else if is_cached {
+        log::warn!("Endpoint was deprecated in cache, updating...");
         update_endpoint(agent, domain, &response_text)?;
         endpoint = util::get_endpoint();
         let mut response = scraper::post(agent, domain, &endpoint, &video_info)?;
@@ -87,7 +89,7 @@ mod tests {
     #[test]
     fn blocking_parse() {
         let agent = Agent::new_with_defaults();
-        let url = "https://kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
+        let url = "https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p";
         let kodik_response = parse(&agent, url).unwrap();
         println!("{kodik_response:#?}");
     }

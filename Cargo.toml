@@ -7,13 +7,14 @@ resolver = "3"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
-log = { version = "0.4.29", default-features = false }
+log = { version = "0.4", default-features = false }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
 
 [workspace.lints.clippy]
-all = "deny"
-pedantic = "deny"
-nursery = "deny"
-cargo = "deny"
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+cargo = { level = "deny", priority = -1 }
+multiple_crate_versions = "allow"

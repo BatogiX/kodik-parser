@@ -59,8 +59,6 @@ impl KodikCache {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::OpenOptions;
-
     use super::*;
 
     #[test]

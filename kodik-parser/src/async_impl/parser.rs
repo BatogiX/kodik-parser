@@ -4,7 +4,7 @@ use crate::{
     async_impl::{scraper, util::update_endpoint},
     decoder,
     error::KodikError,
-    parser::{extract_domain, extract_video_info},
+    parser::{VideoInfo, extract_domain},
     scraper::KodikResponse,
     util,
 };
@@ -45,7 +45,7 @@ use crate::{
 ///
 /// # async fn run() {
 /// let client = Client::new();
-/// let url = "https://kodik.info/some-type/some-id/some-hash/some-quality";
+/// let url = "https://kodikplayer.com/some-type/some-id/some-hash/some-quality";
 /// let kodik_response = async_impl::parse(&client, url).await.unwrap();
 ///
 /// let link_720 = &kodik_response.links.quality_720.first().unwrap().src;
@@ -57,9 +57,10 @@ pub async fn parse(client: &Client, url: &str) -> Result<KodikResponse, KodikErr
 
     let response_text = scraper::get(client, url).await?;
 
-    let video_info = extract_video_info(&response_text)?;
+    let video_info = VideoInfo::from_response(&response_text)?;
     let is_cached = !util::get_endpoint().is_empty();
     if !is_cached {
+        log::warn!("Endpoint not found in cache, updating...");
         update_endpoint(client, domain, &response_text).await?;
     }
     let mut endpoint = util::get_endpoint();
@@ -70,6 +71,7 @@ pub async fn parse(client: &Client, url: &str) -> Result<KodikResponse, KodikErr
         decoder::decode_links(&mut response)?;
         Ok(response)
     } else if is_cached {
+        log::warn!("Endpoint was deprecated in cache, updating...");
         update_endpoint(client, domain, &response_text).await?;
         endpoint = util::get_endpoint();
         let mut response = scraper::post(client, domain, &endpoint, &video_info).await?;
@@ -87,7 +89,7 @@ mod tests {
     #[tokio::test]
     async fn async_parse() {
         let client = Client::new();
-        let url = "https://kodik.info/video/91873/060cab655974d46835b3f4405807acc2/720p";
+        let url = "https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p";
         let kodik_response = parse(&client, url).await.unwrap();
         println!("{kodik_response:#?}");
     }
