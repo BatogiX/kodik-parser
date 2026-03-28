@@ -43,7 +43,7 @@ impl<'a> VideoInfo<'a> {
                 .expect("valid regex syntax")
         });
 
-        log::debug!("Extracting video info...");
+        log::debug!("Extracting video info from response...");
         let (r#type, hash, id) = {
             let mut video_type = None;
             let mut hash = None;
@@ -99,6 +99,7 @@ impl<'a> VideoInfo<'a> {
             Regex::new(r"/([^/]+)/(\d+)/([a-z0-9]+)").expect("valid regex syntax")
         });
 
+        log::debug!("Extracting video info from url...");
         if let Some(caps) = FROM_URL_RE.captures(url) {
             let r#type = caps
                 .get(1)
@@ -155,10 +156,11 @@ pub fn extract_domain(url: &str) -> Result<&str, KodikError> {
     log::debug!("Extracting domain...");
     let domain = DOMAIN_REGEX
         .find(url)
-        .ok_or(KodikError::Regex("no valid domain found"))?;
-    log::trace!("Extracted domain: {}", domain.as_str());
+        .ok_or(KodikError::Regex("no valid domain found"))?
+        .as_str();
+    log::trace!("Extracted domain: {domain}");
 
-    Ok(domain.as_str())
+    Ok(domain)
 }
 
 /// Extracts the player URL from response text.
@@ -178,6 +180,7 @@ pub fn extract_player_url(domain: &str, response_text: &str) -> Result<String, K
         .expect("valid regex syntax")
     });
 
+    log::debug!("Extracting player url...");
     let player_path = PLAYER_PATH_REGEX
         .captures(response_text)
         .ok_or(KodikError::Regex(
@@ -186,6 +189,7 @@ pub fn extract_player_url(domain: &str, response_text: &str) -> Result<String, K
         .get(1)
         .unwrap()
         .as_str();
+    log::trace!("Extracted player url: {player_path}");
 
     Ok(format!("https://{domain}/{player_path}"))
 }
@@ -205,6 +209,7 @@ pub fn extract_api_endpoint(response_text: &str) -> Result<String, KodikError> {
             .expect("valid regex syntax")
     });
 
+    log::debug!("Extracting endpoint...");
     let encoded_api_endpoint = ENDPOINT_REGEX
         .captures(response_text)
         .ok_or(KodikError::Regex(
@@ -214,7 +219,10 @@ pub fn extract_api_endpoint(response_text: &str) -> Result<String, KodikError> {
         .unwrap()
         .as_str();
 
-    decoder::b64(encoded_api_endpoint)
+    let endpoint = decoder::b64(encoded_api_endpoint)?;
+    log::trace!("Extracted endpoint: {endpoint}");
+
+    Ok(endpoint)
 }
 
 #[cfg(test)]

@@ -16,7 +16,7 @@ use crate::{error::KodikError, parser::VideoInfo, scraper::KodikResponse, util};
 pub fn get(agent: &Agent, url: &str) -> Result<String, KodikError> {
     let ua_header = util::spoof_random_ua();
 
-    log::debug!("Fetching response...");
+    log::debug!("GET {url}");
 
     let response_text = agent
         .get(url)
@@ -25,7 +25,7 @@ pub fn get(agent: &Agent, url: &str) -> Result<String, KodikError> {
         .body_mut()
         .read_to_string()?;
 
-    log::trace!("Fetched to {url}, response: {response_text}");
+    log::trace!("GET response from {url}: {response_text:#?}");
 
     Ok(response_text)
 }
@@ -42,8 +42,8 @@ pub fn post(
     video_info: &VideoInfo<'_>,
 ) -> Result<KodikResponse, KodikError> {
     let ua_header = util::spoof_random_ua();
-
-    log::debug!("Posting to endpoint...");
+    let url = format!("https://{domain}{api_endpoint}");
+    log::debug!("POST to {url}...");
 
     let kodik_response = agent
         .post(format!("https://{domain}{api_endpoint}"))
@@ -59,7 +59,7 @@ pub fn post(
         .body_mut()
         .read_json()?;
 
-    log::trace!("POST Response: {kodik_response:#?}");
+    log::trace!("POST response from {url}:\n{kodik_response:#?}");
 
     Ok(kodik_response)
 }

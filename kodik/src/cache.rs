@@ -12,7 +12,7 @@ static CACHE_PATH: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
     BaseDirs::new().map(|base_dirs| base_dirs.cache_dir().join("kodik").join("cache.json"))
 });
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Cache {
     pub shift: u8,
     pub video_info_endpoint: Arc<String>,
@@ -22,13 +22,23 @@ impl Cache {
     pub fn load() -> Option<Self> {
         let cache_path = CACHE_PATH.as_ref()?;
 
-        if !fs::exists(cache_path).ok()? || fs::metadata(cache_path).ok()?.len() == 0 {
+        if !fs::exists(cache_path).ok()? {
             fs::create_dir_all(cache_path.parent()?).ok()?;
             File::create(cache_path).ok();
             return None;
         }
 
-        serde_json::from_str(&fs::read_to_string(cache_path).ok()?).ok()?
+        match serde_json::from_str(&fs::read_to_string(cache_path).ok()?).ok() {
+            Some(cache) => cache,
+            None => {
+                OpenOptions::new()
+                    .write(true)
+                    .truncate(true)
+                    .open(cache_path)
+                    .ok()?;
+                Some(Self::default())
+            }
+        }
     }
 
     fn save(&self) -> Option<()> {

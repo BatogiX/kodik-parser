@@ -4,7 +4,7 @@ use ua_generator::{fastrand, ua};
 
 pub fn spoof_random_ua() -> &'static str {
     static AGENTS: LazyLock<&'static Vec<&'static str>> = LazyLock::new(ua::all_static_agents);
-    log::debug!("Spoofing random user agent...");
+    log::debug!("Spoofing user agent...");
     let ua = AGENTS[fastrand::usize(..AGENTS.len())];
     log::trace!("Spoofed user agent: {ua}");
 

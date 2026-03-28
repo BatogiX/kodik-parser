@@ -26,6 +26,7 @@ pub fn run(args: &[String]) -> ExitCode {
     let url = &args[1];
 
     let mut cache = Cache::load();
+    log::info!("Cache: {:#?}", cache);
     cache.as_ref().map(Cache::apply_to_globals);
     let agent = Agent::new_with_defaults();
 
