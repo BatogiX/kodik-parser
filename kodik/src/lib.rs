@@ -2,7 +2,7 @@ use kodik_parser::Agent;
 use std::io::IsTerminal;
 use std::process::ExitCode;
 
-use crate::cache::KodikCache;
+use crate::cache::Cache;
 
 mod cache;
 mod logging;
@@ -25,8 +25,8 @@ pub fn run(args: &[String]) -> ExitCode {
     }
     let url = &args[1];
 
-    let mut cache = KodikCache::load();
-    cache.as_ref().map(KodikCache::apply_to_globals);
+    let mut cache = Cache::load();
+    cache.as_ref().map(Cache::apply_to_globals);
     let agent = Agent::new_with_defaults();
 
     let kodik_response = match kodik_parser::blocking::parse(&agent, url) {

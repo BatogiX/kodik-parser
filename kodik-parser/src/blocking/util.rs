@@ -5,8 +5,8 @@ use ureq::Agent;
 use crate::{
     KodikError,
     blocking::scraper,
+    cache::KODIK_CACHE,
     parser::{extract_api_endpoint, extract_player_url},
-    util,
 };
 
 /// Updates the API endpoint by extracting it from the player URL.
@@ -21,7 +21,7 @@ pub fn update_endpoint(agent: &Agent, domain: &str, response_text: &str) -> Resu
     let player_url = extract_player_url(domain, response_text)?;
     let player_response_text = scraper::get(agent, &player_url)?;
     let api_endpoint = extract_api_endpoint(&player_response_text)?;
-    util::set_endpoint(Arc::new(api_endpoint));
+    KODIK_CACHE.endpoint_store(Arc::new(api_endpoint));
 
     Ok(())
 }
