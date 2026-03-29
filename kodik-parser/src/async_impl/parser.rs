@@ -2,11 +2,11 @@ use reqwest::Client;
 
 use crate::{
     async_impl::{scraper, util::update_endpoint},
+    cache::KODIK_CACHE,
     decoder,
     error::KodikError,
     parser::{VideoInfo, extract_domain},
     scraper::KodikResponse,
-    util,
 };
 
 /// Parses a Kodik player page asynchronously and returns structured video stream information.
@@ -54,31 +54,49 @@ use crate::{
 /// ```
 pub async fn parse(client: &Client, url: &str) -> Result<KodikResponse, KodikError> {
     let domain = extract_domain(url)?;
+    let is_cached = !KODIK_CACHE.endpoint_load().is_empty();
 
-    let response_text = scraper::get(client, url).await?;
+    let video_info_result = VideoInfo::from_url(url);
 
-    let video_info = VideoInfo::from_response(&response_text)?;
-    let is_cached = !util::get_endpoint().is_empty();
+    let response_opt = if !is_cached || video_info_result.is_err() {
+        Some(scraper::get(client, url).await?)
+    } else {
+        None
+    };
+
+    let video_info = match video_info_result {
+        Ok(info) => info,
+        Err(_) => VideoInfo::from_response(response_opt.as_ref().unwrap())?,
+    };
+
     if !is_cached {
         log::warn!("Endpoint not found in cache, updating...");
-        update_endpoint(client, domain, &response_text).await?;
+        update_endpoint(client, domain, response_opt.as_ref().unwrap()).await?;
     }
-    let mut endpoint = util::get_endpoint();
+    let mut endpoint = KODIK_CACHE.endpoint_load();
 
-    let response_result = scraper::post(client, domain, &endpoint, &video_info).await;
+    match scraper::post(client, domain, &endpoint, &video_info).await {
+        Ok(mut response) => {
+            decoder::decode_links(&mut response)?;
+            Ok(response)
+        }
+        Err(err) => {
+            if !is_cached {
+                return Err(err);
+            }
 
-    if let Ok(mut response) = response_result {
-        decoder::decode_links(&mut response)?;
-        Ok(response)
-    } else if is_cached {
-        log::warn!("Endpoint was deprecated in cache, updating...");
-        update_endpoint(client, domain, &response_text).await?;
-        endpoint = util::get_endpoint();
-        let mut response = scraper::post(client, domain, &endpoint, &video_info).await?;
-        decoder::decode_links(&mut response)?;
-        Ok(response)
-    } else {
-        response_result
+            log::warn!("Endpoint was deprecated in cache, updating...");
+            let response = match response_opt {
+                Some(ref r) => r,
+                None => &scraper::get(client, url).await?,
+            };
+            update_endpoint(client, domain, response).await?;
+
+            endpoint = KODIK_CACHE.endpoint_load();
+            let mut response = scraper::post(client, domain, &endpoint, &video_info).await?;
+            decoder::decode_links(&mut response)?;
+            Ok(response)
+        }
     }
 }
 

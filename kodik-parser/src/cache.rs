@@ -30,11 +30,11 @@ impl KodikCache {
         self.shift.store(shift, Ordering::Relaxed);
     }
 
-    pub fn endpoint(&self) -> &ArcSwap<String> {
+    pub const fn endpoint(&self) -> &ArcSwap<String> {
         &self.endpoint
     }
 
-    pub fn shift(&self) -> &AtomicU8 {
+    pub const fn shift(&self) -> &AtomicU8 {
         &self.shift
     }
 }

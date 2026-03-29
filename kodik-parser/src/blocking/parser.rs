@@ -56,7 +56,7 @@ pub fn parse(agent: &Agent, url: &str) -> Result<KodikResponse, KodikError> {
     let domain = extract_domain(url)?;
     let is_cached = !KODIK_CACHE.endpoint_load().is_empty();
 
-    let video_info_result = VideoInfo::from_url(&url);
+    let video_info_result = VideoInfo::from_url(url);
 
     let response_opt = if !is_cached || video_info_result.is_err() {
         Some(scraper::get(agent, url)?)
