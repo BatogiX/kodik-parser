@@ -28,17 +28,8 @@ impl Cache {
             return None;
         }
 
-        match serde_json::from_str(&fs::read_to_string(cache_path).ok()?).ok() {
-            Some(cache) => cache,
-            None => {
-                OpenOptions::new()
-                    .write(true)
-                    .truncate(true)
-                    .open(cache_path)
-                    .ok()?;
-                Some(Self::default())
-            }
-        }
+        serde_json::from_str(&fs::read_to_string(cache_path).ok()?)
+            .unwrap_or_else(|_| Some(Self::default()))
     }
 
     fn save(&self) -> Option<()> {

@@ -66,12 +66,19 @@ pub fn parse(agent: &Agent, url: &str) -> Result<KodikResponse, KodikError> {
 
     let video_info = match video_info_result {
         Ok(info) => info,
-        Err(_) => VideoInfo::from_response(response_opt.as_ref().unwrap())?,
+        Err(e) => match &response_opt {
+            Some(response) => VideoInfo::from_response(response)?,
+            None => return Err(e),
+        },
     };
 
     if !is_cached {
         log::warn!("Endpoint not found in cache, updating...");
-        update_endpoint(agent, domain, response_opt.as_ref().unwrap())?;
+        if let Some(response) = &response_opt {
+            update_endpoint(agent, domain, response)?;
+        } else {
+            update_endpoint(agent, domain, &scraper::get(agent, url)?)?;
+        }
     }
     let mut endpoint = KODIK_CACHE.endpoint_load();
 
@@ -86,11 +93,10 @@ pub fn parse(agent: &Agent, url: &str) -> Result<KodikResponse, KodikError> {
             }
 
             log::warn!("Endpoint was deprecated in cache, updating...");
-            let response = match response_opt {
-                Some(ref r) => r,
-                None => &scraper::get(agent, url)?,
-            };
-            update_endpoint(agent, domain, response)?;
+            match &response_opt {
+                Some(response) => update_endpoint(agent, domain, response)?,
+                None => update_endpoint(agent, domain, &scraper::get(agent, url)?)?,
+            }
 
             endpoint = KODIK_CACHE.endpoint_load();
             let mut response = scraper::post(agent, domain, &endpoint, &video_info)?;
