@@ -1,10 +1,9 @@
-use std::sync::atomic::{AtomicU8, Ordering};
-
 use base64::{Engine as _, engine::general_purpose};
 
-use crate::{error::KodikError, scraper::KodikResponse};
+use crate::{KODIK_CACHE, error::KodikError, scraper::KodikResponse};
 
-pub static SHIFT: AtomicU8 = AtomicU8::new(0);
+const MIN_SHIFT: u8 = 0;
+const MAX_SHIFT: u8 = 26;
 
 /// Decodes links in the Kodik response.
 ///
@@ -48,17 +47,16 @@ pub fn decode_links(kodik_response: &mut KodikResponse) -> Result<(), KodikError
 }
 
 fn decode_link(src: &str) -> Result<String, KodikError> {
-    let shift = SHIFT.load(Ordering::Relaxed);
+    let mut shift = KODIK_CACHE.shift_load();
+    shift = shift.clamp(MIN_SHIFT, MAX_SHIFT);
 
-    if shift != 0
-        && let Ok(decoded) = try_decode(src, shift)
-    {
+    if let Ok(decoded) = try_decode(src, shift) {
         return Ok(decoded);
     }
 
-    for shift in 1..=25 {
+    for shift in MIN_SHIFT..=MAX_SHIFT {
         if let Ok(decoded) = try_decode(src, shift) {
-            SHIFT.store(shift, Ordering::Relaxed);
+            KODIK_CACHE.shift_store(shift);
             return Ok(decoded);
         }
     }
@@ -83,7 +81,7 @@ fn caesar_cipher(text: &str, shift: u8) -> String {
                 let base = if c.is_ascii_lowercase() { b'a' } else { b'A' };
 
                 let pos = c as u8 - base;
-                let new_pos = (pos + 26 - shift) % 26;
+                let new_pos = (pos + MAX_SHIFT - shift) % MAX_SHIFT;
                 (base + new_pos) as char
             } else {
                 c

@@ -2,12 +2,8 @@ use std::{array::IntoIter, sync::LazyLock};
 
 use crate::decoder;
 use crate::error::KodikError;
-use arc_swap::ArcSwap;
 use regex::Regex;
 use serde::Serialize;
-
-pub static VIDEO_INFO_ENDPOINT: LazyLock<ArcSwap<String>> =
-    LazyLock::new(|| ArcSwap::from_pointee(String::new()));
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct VideoInfo<'a> {

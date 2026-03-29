@@ -8,9 +8,8 @@ pub mod parser;
 pub mod scraper;
 pub mod util;
 
-pub use decoder::SHIFT;
+pub use cache::{KODIK_CACHE, KodikCache};
 pub use error::KodikError;
-pub use parser::VIDEO_INFO_ENDPOINT;
 pub use scraper::{KodikResponse, Link, Links};
 
 #[cfg(feature = "async-impl")]

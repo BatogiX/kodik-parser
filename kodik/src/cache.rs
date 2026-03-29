@@ -32,7 +32,7 @@ impl Cache {
             .unwrap_or_else(|_| Some(Self::default()))
     }
 
-    fn save(&self) -> Option<()> {
+    pub fn save(&self) -> Option<()> {
         let cache_path = CACHE_PATH.as_ref()?;
         let file = OpenOptions::new()
             .write(true)
@@ -46,7 +46,6 @@ impl Cache {
         self.shift = KODIK_CACHE.shift_load();
         self.video_info_endpoint
             .clone_from(&KODIK_CACHE.endpoint_load());
-        self.save();
     }
 
     pub fn is_changed(&self) -> bool {

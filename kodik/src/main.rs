@@ -1,5 +1,3 @@
-mod cache;
-
 use kodik::run;
 use std::{env, process::ExitCode};
 

@@ -42,6 +42,7 @@ pub fn run(args: &[String]) -> ExitCode {
     {
         log::debug!("Updating cache...");
         cache.update();
+        cache.save();
     }
 
     let links = &kodik_response.links;
