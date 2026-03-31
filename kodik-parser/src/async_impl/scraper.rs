@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use reqwest::{
     Client,
     header::{ACCEPT, HeaderName, ORIGIN, REFERER, USER_AGENT},
@@ -8,11 +6,11 @@ use reqwest::{
 use crate::{error::KodikError, parser::VideoInfo, scraper::KodikResponse, util};
 
 pub async fn get(client: &Client, url: &str) -> Result<String, KodikError> {
-    let agent = util::spoof_random_ua();
+    let agent = util::random_user_agent();
 
     log::debug!("Fetching response...");
 
-    let response_text = client
+    let html = client
         .get(url)
         .header(USER_AGENT, agent)
         .send()
@@ -20,18 +18,18 @@ pub async fn get(client: &Client, url: &str) -> Result<String, KodikError> {
         .text()
         .await?;
 
-    log::trace!("Fetched to {url}, response: {response_text}");
+    log::trace!("Fetched to {url}, response: {html}");
 
-    Ok(response_text)
+    Ok(html)
 }
 
 pub async fn post(
     client: &Client,
     domain: &str,
-    endpoint: &Arc<String>,
+    endpoint: &str,
     video_info: &VideoInfo<'_>,
 ) -> Result<KodikResponse, KodikError> {
-    let ua_header = util::spoof_random_ua();
+    let user_agent = util::random_user_agent();
 
     log::debug!("Posting to endpoint...");
 
@@ -40,7 +38,7 @@ pub async fn post(
         .header(ORIGIN, format!("https://{domain}"))
         .header(ACCEPT, "application/json, text/javascript, */*; q=0.01")
         .header(REFERER, format!("https://{domain}"))
-        .header(USER_AGENT, ua_header)
+        .header(USER_AGENT, user_agent)
         .header(
             HeaderName::from_static("x-requested-with"),
             "XMLHttpRequest",
@@ -58,6 +56,8 @@ pub async fn post(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use super::*;
 
     #[tokio::test]

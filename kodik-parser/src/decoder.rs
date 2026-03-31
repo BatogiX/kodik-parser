@@ -1,6 +1,6 @@
 use base64::{Engine as _, engine::general_purpose};
 
-use crate::{KODIK_CACHE, error::KodikError, scraper::KodikResponse};
+use crate::{KODIK_STATE, error::KodikError, scraper::KodikResponse};
 
 const MIN_SHIFT: u8 = 0;
 const MAX_SHIFT: u8 = 26;
@@ -47,7 +47,7 @@ pub fn decode_links(kodik_response: &mut KodikResponse) -> Result<(), KodikError
 }
 
 fn decode_link(src: &str) -> Result<String, KodikError> {
-    let mut shift = KODIK_CACHE.shift_load();
+    let mut shift = KODIK_STATE.load_shift();
     shift = shift.clamp(MIN_SHIFT, MAX_SHIFT);
 
     if let Ok(decoded) = try_decode(src, shift) {
@@ -56,7 +56,7 @@ fn decode_link(src: &str) -> Result<String, KodikError> {
 
     for shift in MIN_SHIFT..=MAX_SHIFT {
         if let Ok(decoded) = try_decode(src, shift) {
-            KODIK_CACHE.shift_store(shift);
+            KODIK_STATE.store_shift(shift);
             return Ok(decoded);
         }
     }
@@ -71,7 +71,7 @@ fn try_decode(src: &str, shift: u8) -> Result<String, KodikError> {
         decoded_caesar.push('=');
     }
 
-    b64(&decoded_caesar)
+    decode_base64(&decoded_caesar)
 }
 
 fn caesar_cipher(text: &str, shift: u8) -> String {
@@ -95,7 +95,7 @@ fn caesar_cipher(text: &str, shift: u8) -> String {
 /// # Errors
 ///
 /// Returns a `KodikError` if decoding fails due to invalid base64 input or invalid UTF-8.
-pub fn b64(input: &str) -> Result<String, KodikError> {
+pub fn decode_base64(input: &str) -> Result<String, KodikError> {
     let decoded_input = general_purpose::STANDARD.decode(input)?;
 
     Ok(String::from_utf8(decoded_input)?)
@@ -110,7 +110,7 @@ mod tests {
     #[test]
     fn b64_test() {
         let input = "L2Z0b3I=";
-        let decoded = b64(input).unwrap();
+        let decoded = decode_base64(input).unwrap();
         assert_eq!("/ftor", decoded);
     }
 

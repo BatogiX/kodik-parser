@@ -1,6 +1,7 @@
 use kodik_parser::Agent;
 use std::io::IsTerminal;
 use std::process::ExitCode;
+use std::thread;
 
 use crate::cache::Cache;
 
@@ -12,30 +13,26 @@ pub fn run(args: &[String]) -> ExitCode {
     logging::setup_logging();
 
     if args.len() < 2 {
-        log::error!("Usage: {} <url>", args[0]);
+        log::error!("Usage: {} [URLS]", args[0]);
         return ExitCode::FAILURE;
     }
-    if args.len() > 2 {
-        log::error!(
-            "unexpected argument '\x1b[93m{}\x1b[0m' found\n\nUsage: {} <url>",
-            args[2],
-            args[0]
-        );
-        return ExitCode::FAILURE;
-    }
-    let url = &args[1];
 
     let mut cache = Cache::load();
-    cache.as_ref().map(Cache::apply_to_globals);
+    cache.as_ref().map(Cache::apply);
     let agent = Agent::new_with_defaults();
 
-    let kodik_response = match kodik_parser::blocking::parse(&agent, url) {
-        Ok(kodik_response) => kodik_response,
-        Err(e) => {
-            log::error!("{e}");
-            return ExitCode::FAILURE;
+    let results = thread::scope(|s| {
+        let mut handles = vec![];
+
+        for url in &args[1..] {
+            handles.push(s.spawn(|| kodik_parser::blocking::parse(&agent, url)));
         }
-    };
+
+        handles
+            .into_iter()
+            .filter_map(|handle| handle.join().ok())
+            .collect::<Vec<_>>()
+    });
 
     if let Some(cache) = &mut cache
         && cache.is_changed()
@@ -45,21 +42,31 @@ pub fn run(args: &[String]) -> ExitCode {
         cache.save();
     }
 
-    let links = &kodik_response.links;
-    if let Some(link) = links
-        .quality_720
-        .first()
-        .or_else(|| links.quality_480.first())
-        .or_else(|| links.quality_360.first())
-    {
-        if std::io::stdout().is_terminal() {
-            log::info!("{}", link.src);
+    for res in results {
+        let kodik_response = match res {
+            Ok(kodik_response) => kodik_response,
+            Err(e) => {
+                log::error!("{e}");
+                return ExitCode::FAILURE;
+            }
+        };
+
+        let links = &kodik_response.links;
+        if let Some(link) = links
+            .quality_720
+            .first()
+            .or_else(|| links.quality_480.first())
+            .or_else(|| links.quality_360.first())
+        {
+            if std::io::stdout().is_terminal() {
+                log::info!("{}", link.src);
+            } else {
+                print!("{} ", link.src);
+            }
         } else {
-            println!("{}", link.src);
+            log::error!("no playable links found for this video");
+            return ExitCode::FAILURE;
         }
-    } else {
-        log::error!("no playable links found for this video");
-        return ExitCode::FAILURE;
     }
 
     ExitCode::SUCCESS

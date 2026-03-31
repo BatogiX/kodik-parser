@@ -5,7 +5,7 @@ use std::{
 };
 
 use directories::BaseDirs;
-use kodik_parser::cache::KODIK_CACHE;
+use kodik_parser::state::KODIK_STATE;
 use serde::{Deserialize, Serialize};
 
 static CACHE_PATH: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
@@ -43,19 +43,19 @@ impl Cache {
     }
 
     pub fn update(&mut self) {
-        self.shift = KODIK_CACHE.shift_load();
+        self.shift = KODIK_STATE.load_shift();
         self.video_info_endpoint
-            .clone_from(&KODIK_CACHE.endpoint_load());
+            .clone_from(&KODIK_STATE.load_endpoint());
     }
 
     pub fn is_changed(&self) -> bool {
-        self.shift != KODIK_CACHE.shift_load()
-            || self.video_info_endpoint.as_str() != KODIK_CACHE.endpoint_load().as_str()
+        self.shift != KODIK_STATE.load_shift()
+            || self.video_info_endpoint.as_str() != KODIK_STATE.load_endpoint().as_str()
     }
 
-    pub fn apply_to_globals(&self) {
-        KODIK_CACHE.shift_store(self.shift);
-        KODIK_CACHE.endpoint_store(Arc::clone(&self.video_info_endpoint));
+    pub fn apply(&self) {
+        KODIK_STATE.store_shift(self.shift);
+        KODIK_STATE.store_endpoint(Arc::clone(&self.video_info_endpoint));
     }
 }
 

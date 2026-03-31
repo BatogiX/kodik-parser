@@ -2,11 +2,11 @@ use ureq::Agent;
 
 use crate::{
     blocking::{scraper, util::update_endpoint},
-    cache::KODIK_CACHE,
     decoder,
     error::KodikError,
     parser::{VideoInfo, extract_domain},
     scraper::KodikResponse,
+    state::KODIK_STATE,
 };
 
 /// Parses a Kodik player page synchronously and returns structured video stream information.
@@ -54,68 +54,59 @@ use crate::{
 /// ```
 pub fn parse(agent: &Agent, url: &str) -> Result<KodikResponse, KodikError> {
     let domain = extract_domain(url)?;
-    let is_cached = !KODIK_CACHE.endpoint_load().is_empty();
+    let endpoint = KODIK_STATE.load_endpoint();
 
-    let video_info_result = VideoInfo::from_url(url);
-
-    let response_opt = if !is_cached || video_info_result.is_err() {
-        Some(scraper::get(agent, url)?)
-    } else {
-        None
-    };
-
-    let video_info = match video_info_result {
-        Ok(info) => info,
-        Err(e) => match &response_opt {
-            Some(response) => VideoInfo::from_response(response)?,
-            None => return Err(e),
-        },
-    };
-
-    if !is_cached {
+    if endpoint.is_empty() {
         log::warn!("Endpoint not found in cache, updating...");
-        if let Some(response) = &response_opt {
-            update_endpoint(agent, domain, response)?;
-        } else {
-            update_endpoint(agent, domain, &scraper::get(agent, url)?)?;
-        }
+        let html = scraper::get(agent, url)?;
+        let video_info = VideoInfo::from_response(&html)?;
+        let endpoint = update_endpoint(agent, domain, &html)?;
+        let mut kodik_response = scraper::post(agent, domain, &endpoint, &video_info)?;
+        decoder::decode_links(&mut kodik_response)?;
+        return Ok(kodik_response);
     }
-    let mut endpoint = KODIK_CACHE.endpoint_load();
 
-    match scraper::post(agent, domain, &endpoint, &video_info) {
-        Ok(mut response) => {
-            decoder::decode_links(&mut response)?;
-            Ok(response)
-        }
-        Err(err) => {
-            if !is_cached {
-                return Err(err);
-            }
-
-            log::warn!("Endpoint was deprecated in cache, updating...");
-            match &response_opt {
-                Some(response) => update_endpoint(agent, domain, response)?,
-                None => update_endpoint(agent, domain, &scraper::get(agent, url)?)?,
-            }
-
-            endpoint = KODIK_CACHE.endpoint_load();
-            let mut response = scraper::post(agent, domain, &endpoint, &video_info)?;
-            decoder::decode_links(&mut response)?;
-            Ok(response)
-        }
+    let video_info = VideoInfo::from_url(url)?;
+    if let Ok(mut kodik_response) = scraper::post(agent, domain, &endpoint, &video_info) {
+        decoder::decode_links(&mut kodik_response)?;
+        Ok(kodik_response)
+    } else {
+        log::warn!("Endpoint was deprecated in cache, updating...");
+        let html = scraper::get(agent, url)?;
+        let endpoint = update_endpoint(agent, domain, &html)?;
+        let mut kodik_response = scraper::post(agent, domain, &endpoint, &video_info)?;
+        decoder::decode_links(&mut kodik_response)?;
+        Ok(kodik_response)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::thread;
 
     #[test]
     #[ignore = "requires network access"]
     fn blocking_parse() {
         let agent = Agent::new_with_defaults();
         let url = "https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p";
-        let kodik_response = parse(&agent, url).unwrap();
-        println!("{kodik_response:#?}");
+        parse(&agent, url).unwrap();
+    }
+
+    #[test]
+    // #[ignore = "requires network access"]
+    fn blocking_parse_multithreaded() {
+        let agent = Agent::new_with_defaults();
+        let urls: [&str; 3] = [
+            "https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p",
+            "https://kodikplayer.com/video/115369/2eb2c698195c8a5020284d37dbc981a3/720p",
+            "https://kodikplayer.com/video/93063/a520057b037a9d017ed53f9e4955ae85/720p",
+        ];
+
+        thread::scope(|s| {
+            for url in urls {
+                s.spawn(|| println!("{}\n", parse(&agent, url).unwrap().links.quality_720[0].src));
+            }
+        });
     }
 }

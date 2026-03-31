@@ -1,23 +1,24 @@
 use std::sync::Arc;
 
+use arc_swap::Guard;
 use reqwest::Client;
 
 use crate::{
     KodikError,
     async_impl::scraper,
-    cache::KODIK_CACHE,
-    parser::{extract_api_endpoint, extract_player_url},
+    parser::{extract_endpoint, extract_player_url},
+    state::KODIK_STATE,
 };
 
 pub async fn update_endpoint(
     client: &Client,
     domain: &str,
-    response_text: &str,
-) -> Result<(), KodikError> {
-    let player_url = extract_player_url(domain, response_text)?;
-    let player_response_text = scraper::get(client, &player_url).await?;
-    let api_endpoint = extract_api_endpoint(&player_response_text)?;
-    KODIK_CACHE.endpoint_store(Arc::new(api_endpoint));
+    html: &str,
+) -> Result<Guard<Arc<String>>, KodikError> {
+    let player_url = extract_player_url(domain, html)?;
+    let player_html = scraper::get(client, &player_url).await?;
+    let endpoint = extract_endpoint(&player_html)?;
+    KODIK_STATE.store_endpoint(Arc::new(endpoint));
 
-    Ok(())
+    Ok(KODIK_STATE.load_endpoint())
 }

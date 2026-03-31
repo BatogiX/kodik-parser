@@ -33,7 +33,7 @@ impl<'a> VideoInfo<'a> {
     /// # Errors
     ///
     /// Returns `KodikError::Regex` if any of the required video fields (type, hash, id) are not found in the response text.
-    pub fn from_response(response_text: &'_ str) -> Result<VideoInfo<'_>, KodikError> {
+    pub fn from_response(html: &'_ str) -> Result<VideoInfo<'_>, KodikError> {
         static FROM_RESPONSE_RE: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"\.(?P<field>type|hash|id) = '(?P<value>.*?)';")
                 .expect("valid regex syntax")
@@ -45,7 +45,7 @@ impl<'a> VideoInfo<'a> {
             let mut hash = None;
             let mut id = None;
 
-            for caps in FROM_RESPONSE_RE.captures_iter(response_text) {
+            for caps in FROM_RESPONSE_RE.captures_iter(html) {
                 match &caps["field"] {
                     "type" => {
                         video_type = Some(
@@ -168,7 +168,7 @@ pub fn extract_domain(url: &str) -> Result<&str, KodikError> {
 /// # Panics
 ///
 /// Panics if the regex capture group is not found, which should not happen if the regex is correct.
-pub fn extract_player_url(domain: &str, response_text: &str) -> Result<String, KodikError> {
+pub fn extract_player_url(domain: &str, html: &str) -> Result<String, KodikError> {
     static PLAYER_PATH_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
             r#"<script\s*type="text/javascript"\s*src="/(assets/js/app\.player_single[^"]*)""#,
@@ -178,7 +178,7 @@ pub fn extract_player_url(domain: &str, response_text: &str) -> Result<String, K
 
     log::debug!("Extracting player url...");
     let player_path = PLAYER_PATH_REGEX
-        .captures(response_text)
+        .captures(html)
         .ok_or(KodikError::Regex(
             "there is no player path in response text",
         ))?
@@ -199,15 +199,15 @@ pub fn extract_player_url(domain: &str, response_text: &str) -> Result<String, K
 /// # Panics
 ///
 /// Panics if the regex capture group is not found, which should not happen if the regex is correct.
-pub fn extract_api_endpoint(response_text: &str) -> Result<String, KodikError> {
+pub fn extract_endpoint(html: &str) -> Result<String, KodikError> {
     static ENDPOINT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r#"\$\.ajax\([^>]+,url:\s*atob\(["\']([\w=]+)["\']\)"#)
             .expect("valid regex syntax")
     });
 
     log::debug!("Extracting endpoint...");
-    let encoded_api_endpoint = ENDPOINT_REGEX
-        .captures(response_text)
+    let encoded_endpoint = ENDPOINT_REGEX
+        .captures(html)
         .ok_or(KodikError::Regex(
             "there is no api endpoint in player response",
         ))?
@@ -215,7 +215,7 @@ pub fn extract_api_endpoint(response_text: &str) -> Result<String, KodikError> {
         .unwrap()
         .as_str();
 
-    let endpoint = decoder::b64(encoded_api_endpoint)?;
+    let endpoint = decoder::decode_base64(encoded_endpoint)?;
     log::trace!("Extracted endpoint: {endpoint}");
 
     Ok(endpoint)
@@ -244,14 +244,14 @@ mod tests {
         let expected_video_info =
             VideoInfo::new("video", "060cab655974d46835b3f4405807acc2", "91873");
 
-        let response_text = "
+        let html = "
   var videoInfo = {};
    vInfo.type = 'video';
    vInfo.hash = '060cab655974d46835b3f4405807acc2';
    vInfo.id = '91873';
 </script>";
 
-        let video_info = VideoInfo::from_response(response_text).unwrap();
+        let video_info = VideoInfo::from_response(html).unwrap();
 
         assert_eq!(expected_video_info, video_info);
     }
@@ -270,7 +270,7 @@ mod tests {
     #[test]
     fn getting_player_url() {
         let domain = "kodikplayer.com";
-        let response_text = r#"
+        let html = r#"
   </script>
 
   <link rel="stylesheet" href="/assets/css/app.player.ffc43caed0b4bc0a9f41f95c06cd8230d49aaf7188dbba5f0770513420541101.css">
@@ -284,7 +284,7 @@ mod tests {
   .resume-button { border-radius: 3px; }
   .active-player .resume-button { border-radius: 3px; }"#;
 
-        let player_url = extract_player_url(domain, response_text).unwrap();
+        let player_url = extract_player_url(domain, html).unwrap();
         assert_eq!(
             "https://kodikplayer.com/assets/js/app.player_single.0a909e421830a88800354716d562e21654500844d220805110c7cf2092d70b05.js",
             player_url
@@ -292,9 +292,9 @@ mod tests {
     }
 
     #[test]
-    fn getting_api_endpoint() {
-        let player_response_text = r#"==t.secret&&(e.secret=t.secret),userInfo&&"object"===_typeof(userInfo.info)&&(e.info=JSON.stringify(userInfo.info)),void 0!==window.advertTest&&(e.a_test=!0),!0===t.isUpdate&&(e.isUpdate=!0),$.ajax({type:"POST",url:atob("L2Z0b3I="),"#;
-        assert_eq!("/ftor", extract_api_endpoint(player_response_text).unwrap());
+    fn getting_endpoint() {
+        let player_html = r#"==t.secret&&(e.secret=t.secret),userInfo&&"object"===_typeof(userInfo.info)&&(e.info=JSON.stringify(userInfo.info)),void 0!==window.advertTest&&(e.a_test=!0),!0===t.isUpdate&&(e.isUpdate=!0),$.ajax({type:"POST",url:atob("L2Z0b3I="),"#;
+        assert_eq!("/ftor", extract_endpoint(player_html).unwrap());
     }
 
     #[test]
