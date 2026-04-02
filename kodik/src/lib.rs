@@ -1,15 +1,14 @@
-use kodik_parser::Agent;
+use crate::cache::Cache;
+use kodik_parser::Client;
+use std::fmt::Write;
 use std::io::IsTerminal;
 use std::process::ExitCode;
-use std::thread;
-
-use crate::cache::Cache;
 
 mod cache;
 mod logging;
 
 #[must_use]
-pub fn run(args: &[String]) -> ExitCode {
+pub async fn run(args: Vec<String>) -> ExitCode {
     logging::setup_logging();
 
     if args.len() < 2 {
@@ -18,30 +17,29 @@ pub fn run(args: &[String]) -> ExitCode {
     }
 
     let mut cache = Cache::load();
-    cache.as_ref().map(Cache::apply);
-    let agent = Agent::new_with_defaults();
+    if let Some(cache) = cache.as_ref() {
+        cache.apply().await;
+    }
+    let client = Client::new();
 
-    let results = thread::scope(|s| {
-        let mut handles = vec![];
+    let mut set = tokio::task::JoinSet::new();
 
-        for url in &args[1..] {
-            handles.push(s.spawn(|| kodik_parser::blocking::parse(&agent, url)));
-        }
+    for url in args.into_iter().skip(1) {
+        let client = client.clone();
+        set.spawn(async move { kodik_parser::parser::parse(&client, &url).await });
+    }
 
-        handles
-            .into_iter()
-            .filter_map(|handle| handle.join().ok())
-            .collect::<Vec<_>>()
-    });
+    let results = set.join_all().await;
 
     if let Some(cache) = &mut cache
-        && cache.is_changed()
+        && cache.is_changed().await
     {
         log::debug!("Updating cache...");
-        cache.update();
+        cache.update().await;
         cache.save();
     }
 
+    let mut stdout = String::new();
     for res in results {
         let kodik_response = match res {
             Ok(kodik_response) => kodik_response,
@@ -58,15 +56,17 @@ pub fn run(args: &[String]) -> ExitCode {
             .or_else(|| links.quality_480.first())
             .or_else(|| links.quality_360.first())
         {
-            if std::io::stdout().is_terminal() {
-                log::info!("{}", link.src);
-            } else {
-                print!("{} ", link.src);
-            }
+            let _ = write!(stdout, "{} ", link.src);
         } else {
             log::error!("no playable links found for this video");
             return ExitCode::FAILURE;
         }
+    }
+
+    if std::io::stdout().is_terminal() {
+        log::info!("{stdout}");
+    } else {
+        print!("{stdout} ",);
     }
 
     ExitCode::SUCCESS

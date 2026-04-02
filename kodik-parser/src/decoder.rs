@@ -47,7 +47,7 @@ pub fn decode_links(kodik_response: &mut KodikResponse) -> Result<(), KodikError
 }
 
 fn decode_link(src: &str) -> Result<String, KodikError> {
-    let mut shift = KODIK_STATE.load_shift();
+    let mut shift = KODIK_STATE.shift();
     shift = shift.clamp(MIN_SHIFT, MAX_SHIFT);
 
     if let Ok(decoded) = try_decode(src, shift) {
@@ -56,7 +56,7 @@ fn decode_link(src: &str) -> Result<String, KodikError> {
 
     for shift in MIN_SHIFT..=MAX_SHIFT {
         if let Ok(decoded) = try_decode(src, shift) {
-            KODIK_STATE.store_shift(shift);
+            KODIK_STATE.set_shift(shift);
             return Ok(decoded);
         }
     }

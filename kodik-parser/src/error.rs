@@ -7,14 +7,8 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum KodikError {
     /// Reqwest HTTP client error.
-    #[cfg(feature = "async-impl")]
     #[error("{0}")]
     Reqwest(#[from] reqwest::Error),
-
-    /// Ureq HTTP client error.
-    #[cfg(feature = "blocking")]
-    #[error("{0}")]
-    Ureq(#[from] ureq::Error),
 
     /// Base64 decoding error.
     #[error("{0}")]

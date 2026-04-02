@@ -1,21 +1,19 @@
 use std::{
     fs::{self, File, OpenOptions},
     path::PathBuf,
-    sync::{Arc, LazyLock},
+    sync::LazyLock,
 };
 
-use directories::BaseDirs;
 use kodik_parser::state::KODIK_STATE;
 use serde::{Deserialize, Serialize};
 
-static CACHE_PATH: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
-    BaseDirs::new().map(|base_dirs| base_dirs.cache_dir().join("kodik").join("cache.json"))
-});
+static CACHE_PATH: LazyLock<Option<PathBuf>> =
+    LazyLock::new(|| dirs::cache_dir().map(|cache_dir| cache_dir.join("kodik").join("cache.json")));
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Cache {
     pub shift: u8,
-    pub video_info_endpoint: Arc<String>,
+    pub endpoint: String,
 }
 
 impl Cache {
@@ -42,20 +40,20 @@ impl Cache {
         serde_json::to_writer_pretty(file, self).ok()
     }
 
-    pub fn update(&mut self) {
-        self.shift = KODIK_STATE.load_shift();
-        self.video_info_endpoint
-            .clone_from(&KODIK_STATE.load_endpoint());
+    pub async fn update(&mut self) {
+        self.shift = KODIK_STATE.shift();
+        let endpoint_guard = KODIK_STATE.endpoint().await;
+        self.endpoint.clone_from(&*endpoint_guard);
     }
 
-    pub fn is_changed(&self) -> bool {
-        self.shift != KODIK_STATE.load_shift()
-            || self.video_info_endpoint.as_str() != KODIK_STATE.load_endpoint().as_str()
+    pub async fn is_changed(&self) -> bool {
+        self.shift != KODIK_STATE.shift()
+            || self.endpoint.as_str() != KODIK_STATE.endpoint().await.as_str()
     }
 
-    pub fn apply(&self) {
-        KODIK_STATE.store_shift(self.shift);
-        KODIK_STATE.store_endpoint(Arc::clone(&self.video_info_endpoint));
+    pub async fn apply(&self) {
+        KODIK_STATE.set_shift(self.shift);
+        KODIK_STATE.set_endpoint(&self.endpoint).await;
     }
 }
 
@@ -63,17 +61,29 @@ impl Cache {
 mod tests {
     use super::*;
 
-    #[test]
-    fn load_test() {
-        if Cache::load().is_none() {
+    fn load_test() -> Cache {
+        let cache = Cache::load().unwrap();
+
+        if cache.endpoint.is_empty() {
             let cache_path = CACHE_PATH.as_ref().unwrap();
             let cache = Cache {
                 shift: 13,
-                video_info_endpoint: Arc::from("/abcd".to_owned()),
+                endpoint: "/abcd".to_owned(),
             };
             let file = OpenOptions::new().write(true).open(cache_path).unwrap();
             serde_json::to_writer_pretty(file, &cache).unwrap();
-            Cache::load().unwrap();
         }
+
+        cache
+    }
+
+    #[tokio::test]
+    async fn apply_test() {
+        let cache = load_test();
+        assert!(KODIK_STATE.endpoint().await.is_empty());
+        assert_eq!(KODIK_STATE.shift(), 0);
+        cache.apply().await;
+        assert!(!KODIK_STATE.endpoint().await.is_empty());
+        assert_ne!(KODIK_STATE.shift(), 0);
     }
 }
