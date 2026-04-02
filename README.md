@@ -11,13 +11,7 @@ A Rust library for getting direct links to files from Kodik.
 - Link decoding.
 
 # Usage
-## Async-impl
 ### Example
-```
-[dependencies.kodik-parser]
-features = ["async-impl"]
-```
-
 ```rust
 use reqwest::Client;
 use kodik_parser::async_impl;
@@ -32,37 +26,22 @@ async fn main() {
 }
 ```
 
-## Blocking
-### Example
-```
-[dependencies.kodik-parser]
-features = ["blocking"]
-```
-
-```rust
-use ureq::Agent;
-use kodik_parser::blocking;
-
-fn main() {
-    let agent = Agent::new_with_defaults();
-    let url = "https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p";
-    let kodik_response = blocking::parse(&agent, url).unwrap();
-
-    let link_720 = &kodik_response.links.quality_720.first().unwrap().src;
-    println!("Link with 720p quality is: {link_720}");
-}
-```
-
 ## CLI
 ### Example
 ```sh
-cargo build --bin kodik --features blocking --release 
+cargo install kodik
 ```
 ```sh
 ./kodik
-Usage: kodik <url>
+Usage: kodik [URLS]
 ```
 ```sh
 ./kodik https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p
-https://p12.kodikplayer.com/s/m/aHR0cHM6Ly9jbG91ZC5rb2Rpay1zdG9yYWdlLmNvbS91c2VydXBsb2Fkcy8zOTkyYmZhOS05Yjc3LTQ4ZTItOGZjYS05ZGRmYTg5MzRhODU/491d50d71d07113553c74f1ceaa14677448d3848e9c57bf5fcc5d7ff936fe8b7:2026031721/720.mp4:hls:manifest.m3u8
+```
+```sh
+./kodik https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p https://kodikplayer.com/video/115369/2eb2c698195c8a5020284d37dbc981a3/720p https://kodikplayer.com/video/93063/a520057b037a9d017ed53f9e4955ae85/720p
+```
+#### You can also pipe output in your favourite media player
+```sh
+./kodik https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p | mpv --playlist=-
 ```

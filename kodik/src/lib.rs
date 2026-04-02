@@ -9,6 +9,7 @@ mod logging;
 
 #[must_use]
 pub async fn run(args: Vec<String>) -> ExitCode {
+    let is_terminal = std::io::stdout().is_terminal();
     logging::setup_logging();
 
     if args.len() < 2 {
@@ -23,13 +24,16 @@ pub async fn run(args: Vec<String>) -> ExitCode {
     let client = Client::new();
 
     let mut set = tokio::task::JoinSet::new();
-
-    for url in args.into_iter().skip(1) {
+    for (idx, url) in args.into_iter().skip(1).enumerate() {
         let client = client.clone();
-        set.spawn(async move { kodik_parser::parser::parse(&client, &url).await });
+        set.spawn(async move {
+            let result = kodik_parser::parser::parse(&client, &url).await;
+            (idx, result)
+        });
     }
 
-    let results = set.join_all().await;
+    let mut results = set.join_all().await;
+    results.sort_by(|a, b| a.0.cmp(&b.0));
 
     if let Some(cache) = &mut cache
         && cache.is_changed().await
@@ -40,7 +44,7 @@ pub async fn run(args: Vec<String>) -> ExitCode {
     }
 
     let mut stdout = String::new();
-    for res in results {
+    for (_, res) in results {
         let kodik_response = match res {
             Ok(kodik_response) => kodik_response,
             Err(e) => {
@@ -56,14 +60,15 @@ pub async fn run(args: Vec<String>) -> ExitCode {
             .or_else(|| links.quality_480.first())
             .or_else(|| links.quality_360.first())
         {
-            let _ = write!(stdout, "{} ", link.src);
+            let _ = writeln!(stdout, "{}", link.src);
         } else {
             log::error!("no playable links found for this video");
             return ExitCode::FAILURE;
         }
     }
 
-    if std::io::stdout().is_terminal() {
+    let stdout = stdout.trim();
+    if is_terminal {
         log::info!("{stdout}");
     } else {
         print!("{stdout} ",);
