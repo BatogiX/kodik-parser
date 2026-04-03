@@ -272,10 +272,12 @@ pub async fn parse(client: &Client, url: &str) -> Result<KodikResponse, KodikErr
     let domain = extract_domain(url)?;
 
     if KODIK_STATE.endpoint().await.is_empty() {
+        let endpoint = KODIK_STATE.endpoint.write().await;
         log::warn!("Endpoint not found in cache, updating...");
         let html = get(client, url).await?;
+        update_endpoint(client, domain, &html, endpoint).await?;
+
         let video_info = VideoInfo::from_response(&html)?;
-        update_endpoint(client, domain, &html).await?;
         let mut kodik_response =
             post(client, domain, &KODIK_STATE.endpoint().await, &video_info).await?;
         decoder::decode_links(&mut kodik_response)?;
@@ -289,9 +291,10 @@ pub async fn parse(client: &Client, url: &str) -> Result<KodikResponse, KodikErr
         decoder::decode_links(&mut kodik_response)?;
         Ok(kodik_response)
     } else {
+        let endpoint = KODIK_STATE.endpoint.write().await;
         log::warn!("Endpoint was deprecated in cache, updating...");
         let html = get(client, url).await?;
-        update_endpoint(client, domain, &html).await?;
+        update_endpoint(client, domain, &html, endpoint).await?;
         let mut kodik_response =
             post(client, domain, &KODIK_STATE.endpoint().await, &video_info).await?;
         decoder::decode_links(&mut kodik_response)?;

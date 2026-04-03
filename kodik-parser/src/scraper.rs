@@ -39,7 +39,7 @@ pub struct Link {
 pub(crate) async fn get(client: &Client, url: &str) -> Result<String, KodikError> {
     let agent = util::random_user_agent();
 
-    log::debug!("Fetching response...");
+    log::info!("GET to {url}...");
 
     let html = client
         .get(url)
@@ -61,11 +61,12 @@ pub(crate) async fn post(
     video_info: &VideoInfo<'_>,
 ) -> Result<KodikResponse, KodikError> {
     let user_agent = util::random_user_agent();
+    let url = format!("https://{domain}{endpoint}");
 
-    log::debug!("Posting to endpoint...");
+    log::info!("POST to {url}...");
 
     let kodik_response = client
-        .post(format!("https://{domain}{endpoint}"))
+        .post(url)
         .header(ORIGIN, format!("https://{domain}"))
         .header(ACCEPT, "application/json, text/javascript, */*; q=0.01")
         .header(REFERER, format!("https://{domain}"))

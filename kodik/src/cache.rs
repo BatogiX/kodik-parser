@@ -1,7 +1,7 @@
 use std::{
     fs::{self, File, OpenOptions},
     path::PathBuf,
-    sync::LazyLock,
+    sync::{Arc, LazyLock},
 };
 
 use kodik_parser::state::KODIK_STATE;
@@ -13,7 +13,7 @@ static CACHE_PATH: LazyLock<Option<PathBuf>> =
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Cache {
     pub shift: u8,
-    pub endpoint: String,
+    pub endpoint: Arc<str>,
 }
 
 impl Cache {
@@ -42,18 +42,16 @@ impl Cache {
 
     pub async fn update(&mut self) {
         self.shift = KODIK_STATE.shift();
-        let endpoint_guard = KODIK_STATE.endpoint().await;
-        self.endpoint.clone_from(&*endpoint_guard);
+        self.endpoint.clone_from(&KODIK_STATE.endpoint().await);
     }
 
     pub async fn is_changed(&self) -> bool {
-        self.shift != KODIK_STATE.shift()
-            || self.endpoint.as_str() != KODIK_STATE.endpoint().await.as_str()
+        self.shift != KODIK_STATE.shift() || self.endpoint != KODIK_STATE.endpoint().await
     }
 
     pub async fn apply(&self) {
         KODIK_STATE.set_shift(self.shift);
-        KODIK_STATE.set_endpoint(&self.endpoint).await;
+        KODIK_STATE.set_endpoint(self.endpoint.to_string()).await;
     }
 }
 
@@ -68,7 +66,7 @@ mod tests {
             let cache_path = CACHE_PATH.as_ref().unwrap();
             let cache = Cache {
                 shift: 13,
-                endpoint: "/abcd".to_owned(),
+                endpoint: Arc::from("/abcd"),
             };
             let file = OpenOptions::new().write(true).open(cache_path).unwrap();
             serde_json::to_writer_pretty(file, &cache).unwrap();

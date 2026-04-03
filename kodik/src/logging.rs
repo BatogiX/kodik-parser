@@ -21,6 +21,6 @@ pub fn setup_logging() {
         })
         .filter(None, LevelFilter::Off)
         .filter_module("", LevelFilter::Info)
-        .filter_module("kodik_parser", LevelFilter::Debug)
+        .filter_module("kodik_parser", LevelFilter::Info)
         .init();
 }

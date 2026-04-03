@@ -1,7 +1,7 @@
 use crate::cache::Cache;
 use kodik_parser::Client;
-use std::fmt::Write;
-use std::io::IsTerminal;
+use std::io::Write;
+use std::io::{self, BufWriter};
 use std::process::ExitCode;
 
 mod cache;
@@ -9,7 +9,6 @@ mod logging;
 
 #[must_use]
 pub async fn run(args: Vec<String>) -> ExitCode {
-    let is_terminal = std::io::stdout().is_terminal();
     logging::setup_logging();
 
     if args.len() < 2 {
@@ -43,7 +42,8 @@ pub async fn run(args: Vec<String>) -> ExitCode {
         cache.save();
     }
 
-    let mut stdout = String::new();
+    let stdout = io::stdout();
+    let mut handle = BufWriter::new(stdout.lock());
     for (_, res) in results {
         let kodik_response = match res {
             Ok(kodik_response) => kodik_response,
@@ -54,24 +54,23 @@ pub async fn run(args: Vec<String>) -> ExitCode {
         };
 
         let links = &kodik_response.links;
-        if let Some(link) = links
-            .quality_720
-            .first()
-            .or_else(|| links.quality_480.first())
-            .or_else(|| links.quality_360.first())
+        if let Some(link) = [&links.quality_720, &links.quality_480, &links.quality_360]
+            .iter()
+            .find_map(|q| q.first())
         {
-            let _ = writeln!(stdout, "{}", link.src);
+            if let Err(e) = writeln!(handle, "{}", link.src) {
+                log::error!("{e}");
+                return ExitCode::FAILURE;
+            }
         } else {
             log::error!("no playable links found for this video");
             return ExitCode::FAILURE;
         }
     }
 
-    let stdout = stdout.trim();
-    if is_terminal {
-        log::info!("{stdout}");
-    } else {
-        print!("{stdout} ",);
+    if let Err(e) = handle.flush() {
+        log::error!("{e}");
+        return ExitCode::FAILURE;
     }
 
     ExitCode::SUCCESS
