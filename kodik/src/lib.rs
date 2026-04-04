@@ -1,20 +1,31 @@
 use crate::cache::Cache;
-use kodik_parser::Client;
+use crate::config::{Config, OPTIONS};
+use kodik_parser::{Client, KodikError, KodikResponse};
+use log::LevelFilter;
 use std::io::Write;
 use std::io::{self, BufWriter};
 use std::process::ExitCode;
 
 mod cache;
+mod config;
 mod logging;
 
 #[must_use]
 pub async fn run(args: Vec<String>) -> ExitCode {
-    logging::setup_logging();
-
     if args.len() < 2 {
-        log::error!("Usage: {} [URLS]", args[0]);
+        eprint!("{}", OPTIONS.help());
         return ExitCode::FAILURE;
     }
+
+    logging::setup_logging(LevelFilter::Info);
+    let config = match Config::build(&args) {
+        Ok(config) => config,
+        Err(err) => {
+            log::error!("{err}");
+            return ExitCode::FAILURE;
+        }
+    };
+    logging::setup_logging(config.level_filter);
 
     let mut cache = Cache::load();
     if let Some(cache) = cache.as_ref() {
@@ -22,17 +33,7 @@ pub async fn run(args: Vec<String>) -> ExitCode {
     }
     let client = Client::new();
 
-    let mut set = tokio::task::JoinSet::new();
-    for (idx, url) in args.into_iter().skip(1).enumerate() {
-        let client = client.clone();
-        set.spawn(async move {
-            let result = kodik_parser::parser::parse(&client, &url).await;
-            (idx, result)
-        });
-    }
-
-    let mut results = set.join_all().await;
-    results.sort_by(|a, b| a.0.cmp(&b.0));
+    let results = parallel(args, client).await;
 
     if let Some(cache) = &mut cache
         && cache.is_changed()
@@ -74,4 +75,22 @@ pub async fn run(args: Vec<String>) -> ExitCode {
     }
 
     ExitCode::SUCCESS
+}
+
+async fn parallel(
+    args: Vec<String>,
+    client: Client,
+) -> Vec<(usize, Result<KodikResponse, KodikError>)> {
+    let mut set = tokio::task::JoinSet::new();
+    for (idx, url) in args.into_iter().skip(1).enumerate() {
+        let client = client.clone();
+        set.spawn(async move {
+            let result = kodik_parser::parser::parse(&client, &url).await;
+            (idx, result)
+        });
+    }
+
+    let mut results = set.join_all().await;
+    results.sort_by(|a, b| a.0.cmp(&b.0));
+    results
 }

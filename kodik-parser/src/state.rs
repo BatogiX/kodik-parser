@@ -1,6 +1,6 @@
 use std::sync::{
     Arc, LazyLock,
-    atomic::{AtomicU8, Ordering},
+    atomic::{AtomicBool, AtomicU8, Ordering},
 };
 
 use arc_swap::{ArcSwap, Guard};
@@ -13,6 +13,7 @@ pub struct KodikState {
     pub(crate) endpoint: ArcSwap<String>,
     pub(crate) shift: AtomicU8,
     pub(crate) notify: Notify,
+    pub(crate) updating: AtomicBool,
 }
 
 impl KodikState {

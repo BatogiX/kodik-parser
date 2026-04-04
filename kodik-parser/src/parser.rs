@@ -1,10 +1,10 @@
 use reqwest::Client;
+use std::sync::atomic::Ordering;
 use std::{array::IntoIter, sync::LazyLock};
 
 use crate::decoder;
 use crate::error::KodikError;
-use crate::scraper::post;
-use crate::util::update_endpoint;
+use crate::scraper::{get, post};
 use crate::{KODIK_STATE, KodikResponse};
 use regex::Regex;
 use serde::Serialize;
@@ -271,42 +271,47 @@ pub fn extract_endpoint(html: &str) -> Result<String, KodikError> {
 #[allow(clippy::significant_drop_tightening)]
 pub async fn parse(client: &Client, url: &str) -> Result<KodikResponse, KodikError> {
     let domain = extract_domain(url)?;
-
-    if KODIK_STATE.endpoint().is_empty() {
-        let html = update_endpoint(
-            client,
-            domain,
-            url,
-            "Endpoint not found in cache, updating...",
-        )
-        .await?;
-
-        let video_info = VideoInfo::from_response(&html)?;
-        let mut kodik_response = post(client, domain, &KODIK_STATE.endpoint(), &video_info).await?;
-
-        decoder::decode_links(&mut kodik_response)?;
-        return Ok(kodik_response);
-    }
-
-    let video_info = VideoInfo::from_url(url)?;
-    let endpoint = KODIK_STATE.endpoint();
-    if let Ok(mut kodik_response) = post(client, domain, &endpoint, &video_info).await {
-        decoder::decode_links(&mut kodik_response)?;
-        Ok(kodik_response)
+    let mut html = String::new();
+    let video_info = if let Ok(video_info) = VideoInfo::from_url(url) {
+        video_info
     } else {
+        html = get(client, url).await?;
+        VideoInfo::from_response(&html)?
+    };
+
+    loop {
+        let endpoint = KODIK_STATE.endpoint();
+
+        if !endpoint.is_empty() {
+            if let Ok(mut kodik_response) = post(client, domain, &endpoint, &video_info).await {
+                decoder::decode_links(&mut kodik_response)?;
+                return Ok(kodik_response);
+            }
+
+            KODIK_STATE.set_endpoint(String::new());
+            continue;
+        }
+
+        if !KODIK_STATE.updating.swap(true, Ordering::AcqRel) {
+            log::warn!("Endpoint not found in cache, updating...");
+            let html = {
+                if html.is_empty() {
+                    &get(client, url).await?
+                } else {
+                    &html
+                }
+            };
+            let player_url = extract_player_url(domain, html)?;
+            let player_html = get(client, &player_url).await?;
+            let new_endpoint = extract_endpoint(&player_html)?;
+            KODIK_STATE.set_endpoint(new_endpoint);
+
+            KODIK_STATE.updating.store(false, Ordering::Release);
+            KODIK_STATE.notify.notify_waiters();
+
+            continue;
+        }
         KODIK_STATE.notify.notified().await;
-        update_endpoint(
-            client,
-            domain,
-            url,
-            "Endpoint was deprecated in cache, updating...",
-        )
-        .await?;
-
-        let mut kodik_response = post(client, domain, &KODIK_STATE.endpoint(), &video_info).await?;
-
-        decoder::decode_links(&mut kodik_response)?;
-        Ok(kodik_response)
     }
 }
 
