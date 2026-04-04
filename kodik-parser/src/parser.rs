@@ -3,7 +3,7 @@ use std::{array::IntoIter, sync::LazyLock};
 
 use crate::decoder;
 use crate::error::KodikError;
-use crate::scraper::{get, post};
+use crate::scraper::post;
 use crate::util::update_endpoint;
 use crate::{KODIK_STATE, KodikResponse};
 use regex::Regex;
@@ -268,35 +268,43 @@ pub fn extract_endpoint(html: &str) -> Result<String, KodikError> {
 /// println!("Link with 720p quality is: {link_720}");
 /// # }
 /// ```
+#[allow(clippy::significant_drop_tightening)]
 pub async fn parse(client: &Client, url: &str) -> Result<KodikResponse, KodikError> {
     let domain = extract_domain(url)?;
 
-    if KODIK_STATE.endpoint().await.is_empty() {
-        let endpoint = KODIK_STATE.endpoint.write().await;
-        log::warn!("Endpoint not found in cache, updating...");
-        let html = get(client, url).await?;
-        update_endpoint(client, domain, &html, endpoint).await?;
+    if KODIK_STATE.endpoint().is_empty() {
+        let html = update_endpoint(
+            client,
+            domain,
+            url,
+            "Endpoint not found in cache, updating...",
+        )
+        .await?;
 
         let video_info = VideoInfo::from_response(&html)?;
-        let mut kodik_response =
-            post(client, domain, &KODIK_STATE.endpoint().await, &video_info).await?;
+        let mut kodik_response = post(client, domain, &KODIK_STATE.endpoint(), &video_info).await?;
+
         decoder::decode_links(&mut kodik_response)?;
         return Ok(kodik_response);
     }
 
     let video_info = VideoInfo::from_url(url)?;
-    if let Ok(mut kodik_response) =
-        post(client, domain, &KODIK_STATE.endpoint().await, &video_info).await
-    {
+    let endpoint = KODIK_STATE.endpoint();
+    if let Ok(mut kodik_response) = post(client, domain, &endpoint, &video_info).await {
         decoder::decode_links(&mut kodik_response)?;
         Ok(kodik_response)
     } else {
-        let endpoint = KODIK_STATE.endpoint.write().await;
-        log::warn!("Endpoint was deprecated in cache, updating...");
-        let html = get(client, url).await?;
-        update_endpoint(client, domain, &html, endpoint).await?;
-        let mut kodik_response =
-            post(client, domain, &KODIK_STATE.endpoint().await, &video_info).await?;
+        KODIK_STATE.notify.notified().await;
+        update_endpoint(
+            client,
+            domain,
+            url,
+            "Endpoint was deprecated in cache, updating...",
+        )
+        .await?;
+
+        let mut kodik_response = post(client, domain, &KODIK_STATE.endpoint(), &video_info).await?;
+
         decoder::decode_links(&mut kodik_response)?;
         Ok(kodik_response)
     }

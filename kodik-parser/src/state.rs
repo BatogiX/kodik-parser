@@ -3,14 +3,16 @@ use std::sync::{
     atomic::{AtomicU8, Ordering},
 };
 
-use tokio::sync::RwLock;
+use arc_swap::{ArcSwap, Guard};
+use tokio::sync::Notify;
 
 pub static KODIK_STATE: LazyLock<KodikState> = LazyLock::new(KodikState::default);
 
 #[derive(Debug, Default)]
 pub struct KodikState {
-    pub(crate) endpoint: RwLock<Arc<str>>,
+    pub(crate) endpoint: ArcSwap<String>,
     pub(crate) shift: AtomicU8,
+    pub(crate) notify: Notify,
 }
 
 impl KodikState {
@@ -22,11 +24,11 @@ impl KodikState {
         self.shift.store(shift, Ordering::Relaxed);
     }
 
-    pub async fn endpoint(&self) -> Arc<str> {
-        self.endpoint.read().await.clone()
+    pub fn endpoint(&self) -> Guard<Arc<String>> {
+        self.endpoint.load()
     }
 
-    pub async fn set_endpoint(&self, endpoint: String) {
-        *self.endpoint.write().await = Arc::from(endpoint);
+    pub fn set_endpoint(&self, endpoint: String) {
+        self.endpoint.store(Arc::new(endpoint));
     }
 }

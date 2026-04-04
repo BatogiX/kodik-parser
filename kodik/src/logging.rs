@@ -20,7 +20,7 @@ pub fn setup_logging() {
             Level::Trace => writeln!(buf, "\x1b[2m{}\x1b[0m", record.args()),
         })
         .filter(None, LevelFilter::Off)
-        .filter_module("", LevelFilter::Info)
-        .filter_module("kodik_parser", LevelFilter::Info)
+        .filter_module("", LevelFilter::Debug)
+        .filter_module("kodik_parser", LevelFilter::Debug)
         .init();
 }

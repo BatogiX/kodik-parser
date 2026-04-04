@@ -18,7 +18,7 @@ pub async fn run(args: Vec<String>) -> ExitCode {
 
     let mut cache = Cache::load();
     if let Some(cache) = cache.as_ref() {
-        cache.apply().await;
+        cache.apply();
     }
     let client = Client::new();
 
@@ -35,10 +35,10 @@ pub async fn run(args: Vec<String>) -> ExitCode {
     results.sort_by(|a, b| a.0.cmp(&b.0));
 
     if let Some(cache) = &mut cache
-        && cache.is_changed().await
+        && cache.is_changed()
     {
         log::debug!("Updating cache...");
-        cache.update().await;
+        cache.update();
         cache.save();
     }
 

@@ -1,12 +1,11 @@
-use std::sync::{Arc, LazyLock};
+use std::sync::LazyLock;
 
-use tokio::sync::RwLockWriteGuard;
 use ua_generator::{fastrand, ua};
 
 use reqwest::Client;
 
 use crate::{
-    KodikError,
+    KODIK_STATE, KodikError,
     parser::{extract_endpoint, extract_player_url},
     scraper::get,
 };
@@ -14,15 +13,17 @@ use crate::{
 pub(crate) async fn update_endpoint(
     client: &Client,
     domain: &str,
-    html: &str,
-    mut endpoint: RwLockWriteGuard<'_, Arc<str>>,
-) -> Result<(), KodikError> {
-    let player_url = extract_player_url(domain, html)?;
+    url: &str,
+    msg: &str,
+) -> Result<String, KodikError> {
+    log::warn!("{msg}");
+    let html = get(client, url).await?;
+    let player_url = extract_player_url(domain, &html)?;
     let player_html = get(client, &player_url).await?;
-    let new_endpoint = extract_endpoint(&player_html)?;
-    *endpoint = Arc::from(new_endpoint);
+    let endpoint = extract_endpoint(&player_html)?;
+    KODIK_STATE.set_endpoint(endpoint);
 
-    Ok(())
+    Ok(html)
 }
 
 pub fn random_user_agent() -> &'static str {

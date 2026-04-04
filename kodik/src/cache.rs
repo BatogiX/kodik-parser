@@ -1,7 +1,7 @@
 use std::{
     fs::{self, File, OpenOptions},
     path::PathBuf,
-    sync::{Arc, LazyLock},
+    sync::LazyLock,
 };
 
 use kodik_parser::state::KODIK_STATE;
@@ -13,7 +13,7 @@ static CACHE_PATH: LazyLock<Option<PathBuf>> =
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Cache {
     pub shift: u8,
-    pub endpoint: Arc<str>,
+    pub endpoint: String,
 }
 
 impl Cache {
@@ -40,18 +40,19 @@ impl Cache {
         serde_json::to_writer_pretty(file, self).ok()
     }
 
-    pub async fn update(&mut self) {
+    pub fn update(&mut self) {
         self.shift = KODIK_STATE.shift();
-        self.endpoint.clone_from(&KODIK_STATE.endpoint().await);
+        self.endpoint.clone_from(&KODIK_STATE.endpoint());
     }
 
-    pub async fn is_changed(&self) -> bool {
-        self.shift != KODIK_STATE.shift() || self.endpoint != KODIK_STATE.endpoint().await
+    pub fn is_changed(&self) -> bool {
+        self.shift != KODIK_STATE.shift()
+            || self.endpoint.as_str() != KODIK_STATE.endpoint().as_str()
     }
 
-    pub async fn apply(&self) {
+    pub fn apply(&self) {
         KODIK_STATE.set_shift(self.shift);
-        KODIK_STATE.set_endpoint(self.endpoint.to_string()).await;
+        KODIK_STATE.set_endpoint(self.endpoint.clone());
     }
 }
 
@@ -66,7 +67,7 @@ mod tests {
             let cache_path = CACHE_PATH.as_ref().unwrap();
             let cache = Cache {
                 shift: 13,
-                endpoint: Arc::from("/abcd"),
+                endpoint: String::from("/abcd"),
             };
             let file = OpenOptions::new().write(true).open(cache_path).unwrap();
             serde_json::to_writer_pretty(file, &cache).unwrap();
@@ -78,10 +79,10 @@ mod tests {
     #[tokio::test]
     async fn apply_test() {
         let cache = load_test();
-        assert!(KODIK_STATE.endpoint().await.is_empty());
+        assert!(KODIK_STATE.endpoint().is_empty());
         assert_eq!(KODIK_STATE.shift(), 0);
-        cache.apply().await;
-        assert!(!KODIK_STATE.endpoint().await.is_empty());
+        cache.apply();
+        assert!(!KODIK_STATE.endpoint().is_empty());
         assert_ne!(KODIK_STATE.shift(), 0);
     }
 }
