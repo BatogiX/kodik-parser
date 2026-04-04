@@ -82,6 +82,7 @@ impl<'a> Config<'a> {
                 "-v" | "--verbose" => level_filter = LevelFilter::Debug,
                 "-vv" => level_filter = LevelFilter::Trace,
                 "-q" | "--quiet" => level_filter = LevelFilter::Off,
+                "-l" | "--lazy" => lazy = true,
                 "-p" | "--player" => {
                     if let Some(p) = args.next() {
                         player = Some(p);
@@ -91,13 +92,15 @@ impl<'a> Config<'a> {
                         ));
                     }
                 }
-                "-h" | "--help" => return Err(OPTIONS.help()),
+                "-h" | "--help" => help = true,
                 _ => {
-                    return Err(format!(
-                        "unexpected argument '{YELLOW_BOLD}{arg}{RESET}' found\n
+                    if arg.starts_with('-') {
+                        return Err(format!(
+                            "unexpected argument '{YELLOW_BOLD}{arg}{RESET}' found\n
 {GREEN_HIGH_INTENSITY_BOLD}Usage:{RESET} {CYAN_HIGH_INTENSITY_BOLD}kodik{RESET} {CYAN}[URLS]{RESET}\n
 For more information, try '{CYAN_HIGH_INTENSITY_BOLD}--help{RESET}'.",
-                    ));
+                        ));
+                    }
                 }
             }
         }

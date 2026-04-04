@@ -12,20 +12,22 @@ mod logging;
 
 #[must_use]
 pub async fn run(args: Vec<String>) -> ExitCode {
-    if args.len() < 2 {
-        eprint!("{}", OPTIONS.help());
-        return ExitCode::FAILURE;
-    }
-
-    logging::setup_logging(LevelFilter::Info);
     let config = match Config::build(&args) {
-        Ok(config) => config,
+        Ok(config) => {
+            logging::setup_logging(config.level_filter);
+            config
+        }
         Err(err) => {
+            logging::setup_logging(LevelFilter::Info);
             log::error!("{err}");
             return ExitCode::FAILURE;
         }
     };
-    logging::setup_logging(config.level_filter);
+
+    if args.len() < 2 || config.help {
+        eprint!("{}", OPTIONS.help());
+        return ExitCode::FAILURE;
+    }
 
     let mut cache = Cache::load();
     if let Some(cache) = cache.as_ref() {
