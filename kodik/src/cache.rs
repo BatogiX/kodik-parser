@@ -4,7 +4,7 @@ use std::{
     sync::LazyLock,
 };
 
-use kodik_parser::state::KODIK_STATE;
+use kodik_parser::KODIK_STATE;
 use serde::{Deserialize, Serialize};
 
 static CACHE_PATH: LazyLock<Option<PathBuf>> =

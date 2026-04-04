@@ -13,42 +13,36 @@ const MAX_SHIFT: u8 = 26;
 pub fn decode_links(kodik_response: &mut KodikResponse) -> Result<(), KodikError> {
     log::debug!("Decoding links...");
 
-    for link_360 in &mut kodik_response.links.quality_360 {
-        link_360.src = decode_link(&link_360.src)?;
+    for link in &mut kodik_response.links.quality_360 {
+        link.src = decode_link(&link.src)?;
     }
 
-    for link_480 in &mut kodik_response.links.quality_480 {
-        let link_360 = kodik_response.links.quality_360.first();
-        match link_360 {
-            Some(link_360) => {
-                link_480.src = link_360.src.replace("/360.mp4", "/480.mp4");
-            }
-            None => {
-                link_480.src = decode_link(&link_480.src)?;
-            }
-        }
+    let base_360 = kodik_response
+        .links
+        .quality_360
+        .first()
+        .map(|l| l.src.clone());
+
+    for link in &mut kodik_response.links.quality_480 {
+        link.src = match &base_360 {
+            Some(src) => src.replace("/360.mp4", "/480.mp4"),
+            None => decode_link(&link.src)?,
+        };
     }
 
-    for link_720 in &mut kodik_response.links.quality_720 {
-        let link_360 = kodik_response.links.quality_360.first();
-        match link_360 {
-            Some(link_360) => {
-                link_720.src = link_360.src.replace("/360.mp4", "/720.mp4");
-            }
-            None => {
-                link_720.src = decode_link(&link_720.src)?;
-            }
-        }
+    for link in &mut kodik_response.links.quality_720 {
+        link.src = match &base_360 {
+            Some(src) => src.replace("/360.mp4", "/720.mp4"),
+            None => decode_link(&link.src)?,
+        };
     }
 
     log::trace!("Decoded links: {:#?}", kodik_response.links);
-
     Ok(())
 }
 
 fn decode_link(src: &str) -> Result<String, KodikError> {
-    let mut shift = KODIK_STATE.shift();
-    shift = shift.clamp(MIN_SHIFT, MAX_SHIFT);
+    let shift = KODIK_STATE.shift().clamp(MIN_SHIFT, MAX_SHIFT);
 
     if let Ok(decoded) = try_decode(src, shift) {
         return Ok(decoded);
@@ -79,7 +73,6 @@ fn caesar_cipher(text: &str, shift: u8) -> String {
         .map(|c| {
             if c.is_ascii_alphabetic() {
                 let base = if c.is_ascii_lowercase() { b'a' } else { b'A' };
-
                 let pos = c as u8 - base;
                 let new_pos = (pos + MAX_SHIFT - shift) % MAX_SHIFT;
                 (base + new_pos) as char
@@ -97,7 +90,6 @@ fn caesar_cipher(text: &str, shift: u8) -> String {
 /// Returns a `KodikError` if decoding fails due to invalid base64 input or invalid UTF-8.
 pub fn decode_base64(input: &str) -> Result<String, KodikError> {
     let decoded_input = general_purpose::STANDARD.decode(input)?;
-
     Ok(String::from_utf8(decoded_input)?)
 }
 

@@ -1,6 +1,5 @@
 use reqwest::Client;
-use std::sync::atomic::Ordering;
-use std::{array::IntoIter, sync::LazyLock};
+use std::sync::LazyLock;
 
 use crate::decoder;
 use crate::error::KodikError;
@@ -21,7 +20,7 @@ pub struct VideoInfo<'a> {
 
 impl<'a> VideoInfo<'a> {
     #[must_use]
-    pub const fn new(r#type: &'a str, hash: &'a str, id: &'a str) -> Self {
+    pub(crate) const fn new(r#type: &'a str, hash: &'a str, id: &'a str) -> Self {
         Self {
             r#type,
             hash,
@@ -37,53 +36,50 @@ impl<'a> VideoInfo<'a> {
     /// # Errors
     ///
     /// Returns `KodikError::Regex` if any of the required video fields (type, hash, id) are not found in the response text.
-    pub fn from_response(html: &'_ str) -> Result<VideoInfo<'_>, KodikError> {
+    pub(crate) fn from_response(html: &'_ str) -> Result<VideoInfo<'_>, KodikError> {
         static FROM_RESPONSE_RE: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"\.(?P<field>type|hash|id) = '(?P<value>.*?)';")
                 .expect("valid regex syntax")
         });
 
         log::debug!("Extracting video info from response...");
-        let (r#type, hash, id) = {
-            let mut video_type = None;
-            let mut hash = None;
-            let mut id = None;
 
-            for caps in FROM_RESPONSE_RE.captures_iter(html) {
-                match &caps["field"] {
-                    "type" => {
-                        video_type = Some(
-                            caps.name("value")
-                                .ok_or(KodikError::Regex("videoInfo.type value not found"))?
-                                .as_str(),
-                        );
-                    }
-                    "hash" => {
-                        hash = Some(
-                            caps.name("value")
-                                .ok_or(KodikError::Regex("videoInfo.hash value not found"))?
-                                .as_str(),
-                        );
-                    }
-                    "id" => {
-                        id = Some(
-                            caps.name("value")
-                                .ok_or(KodikError::Regex("videoInfo.id value not found"))?
-                                .as_str(),
-                        );
-                    }
-                    _ => {}
+        let mut r#type = None;
+        let mut hash = None;
+        let mut id = None;
+
+        for caps in FROM_RESPONSE_RE.captures_iter(html) {
+            match &caps["field"] {
+                "type" => {
+                    r#type = Some(
+                        caps.name("value")
+                            .ok_or(KodikError::Regex("videoInfo.type value not found"))?
+                            .as_str(),
+                    );
                 }
+                "hash" => {
+                    hash = Some(
+                        caps.name("value")
+                            .ok_or(KodikError::Regex("videoInfo.hash value not found"))?
+                            .as_str(),
+                    );
+                }
+                "id" => {
+                    id = Some(
+                        caps.name("value")
+                            .ok_or(KodikError::Regex("videoInfo.id value not found"))?
+                            .as_str(),
+                    );
+                }
+                _ => {}
             }
+        }
 
-            (
-                video_type.ok_or(KodikError::Regex("videoInfo.type not found"))?,
-                hash.ok_or(KodikError::Regex("videoInfo.hash not found"))?,
-                id.ok_or(KodikError::Regex("videoInfo.id not found"))?,
-            )
-        };
-
-        let video_info = VideoInfo::new(r#type, hash, id);
+        let video_info = VideoInfo::new(
+            r#type.ok_or(KodikError::Regex("videoInfo.type not found"))?,
+            hash.ok_or(KodikError::Regex("videoInfo.hash not found"))?,
+            id.ok_or(KodikError::Regex("videoInfo.id not found"))?,
+        );
         log::trace!("Extracted video info: {video_info:#?}");
 
         Ok(video_info)
@@ -94,51 +90,31 @@ impl<'a> VideoInfo<'a> {
     /// # Errors
     ///
     /// Returns `KodikError::Regex` if the video information (type, hash, id) is not found in the URL.
-    pub fn from_url(url: &'_ str) -> Result<VideoInfo<'_>, KodikError> {
+    pub(crate) fn from_url(url: &'_ str) -> Result<VideoInfo<'_>, KodikError> {
         static FROM_URL_RE: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"/([^/]+)/(\d+)/([a-z0-9]+)").expect("valid regex syntax")
         });
 
         log::debug!("Extracting video info from url...");
-        if let Some(caps) = FROM_URL_RE.captures(url) {
-            let r#type = caps
-                .get(1)
-                .ok_or(KodikError::Regex("videoInfo.type not found"))?
-                .as_str();
-            let id = caps
-                .get(2)
-                .ok_or(KodikError::Regex("videoInfo.id not found"))?
-                .as_str();
-            let hash = caps
-                .get(3)
-                .ok_or(KodikError::Regex("videoInfo.hash not found"))?
-                .as_str();
 
-            Ok(VideoInfo::new(r#type, hash, id))
-        } else {
-            Err(KodikError::Regex("videoInfo not found"))
-        }
-    }
+        let caps = FROM_URL_RE
+            .captures(url)
+            .ok_or(KodikError::Regex("videoInfo not found"))?;
 
-    fn iter(&'a self) -> IntoIter<(&'a str, &'a str), 6> {
-        [
-            ("type", self.r#type),
-            ("hash", self.hash),
-            ("id", self.id),
-            ("bad_user", self.bad_user),
-            ("info", self.info),
-            ("cdn_is_working", self.cdn_is_working),
-        ]
-        .into_iter()
-    }
-}
+        let r#type = caps
+            .get(1)
+            .ok_or(KodikError::Regex("videoInfo.type not found"))?
+            .as_str();
+        let id = caps
+            .get(2)
+            .ok_or(KodikError::Regex("videoInfo.id not found"))?
+            .as_str();
+        let hash = caps
+            .get(3)
+            .ok_or(KodikError::Regex("videoInfo.hash not found"))?
+            .as_str();
 
-impl<'a> IntoIterator for &'a VideoInfo<'a> {
-    type Item = (&'a str, &'a str);
-    type IntoIter = IntoIter<Self::Item, 6>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
+        Ok(VideoInfo::new(r#type, hash, id))
     }
 }
 
@@ -268,10 +244,10 @@ pub fn extract_endpoint(html: &str) -> Result<String, KodikError> {
 /// println!("Link with 720p quality is: {link_720}");
 /// # }
 /// ```
-#[allow(clippy::significant_drop_tightening)]
 pub async fn parse(client: &Client, url: &str) -> Result<KodikResponse, KodikError> {
     let domain = extract_domain(url)?;
     let mut html = String::new();
+
     let video_info = if let Ok(video_info) = VideoInfo::from_url(url) {
         video_info
     } else {
@@ -287,31 +263,27 @@ pub async fn parse(client: &Client, url: &str) -> Result<KodikResponse, KodikErr
                 decoder::decode_links(&mut kodik_response)?;
                 return Ok(kodik_response);
             }
-
-            KODIK_STATE.set_endpoint(String::new());
+            KODIK_STATE.clear_endpoint();
             continue;
         }
 
-        if !KODIK_STATE.updating.swap(true, Ordering::AcqRel) {
+        if KODIK_STATE.try_begin_update() {
             log::warn!("Endpoint not found in cache, updating...");
-            let html = {
-                if html.is_empty() {
-                    &get(client, url).await?
-                } else {
-                    &html
-                }
+            let fetched;
+            let page_html = if html.is_empty() {
+                fetched = get(client, url).await?;
+                &fetched
+            } else {
+                &html
             };
-            let player_url = extract_player_url(domain, html)?;
+            let player_url = extract_player_url(domain, page_html)?;
             let player_html = get(client, &player_url).await?;
             let new_endpoint = extract_endpoint(&player_html)?;
-            KODIK_STATE.set_endpoint(new_endpoint);
-
-            KODIK_STATE.updating.store(false, Ordering::Release);
-            KODIK_STATE.notify.notify_waiters();
-
+            KODIK_STATE.finish_update(new_endpoint);
             continue;
         }
-        KODIK_STATE.notify.notified().await;
+
+        KODIK_STATE.wait_for_update().await;
     }
 }
 

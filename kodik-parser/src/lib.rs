@@ -1,14 +1,15 @@
 //! # Kodik Parser library.
 //! `kodik-parser` for getting direct links to files from Kodik.
 
-pub mod decoder;
-pub mod error;
-pub mod parser;
-pub mod scraper;
-pub mod state;
-pub mod util;
+pub(crate) mod decoder;
+pub(crate) mod error;
+pub(crate) mod parser;
+pub(crate) mod scraper;
+pub(crate) mod state;
+pub(crate) mod util;
 
 pub use error::KodikError;
+pub use parser::parse;
 pub use reqwest::Client;
 pub use scraper::{KodikResponse, Link, Links};
-pub use state::{KODIK_STATE, KodikState};
+pub use state::KODIK_STATE;

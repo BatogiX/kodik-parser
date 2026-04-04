@@ -36,7 +36,7 @@ pub struct Link {
     pub r#type: String,
 }
 
-pub(crate) async fn get(client: &Client, url: &str) -> Result<String, KodikError> {
+pub async fn get(client: &Client, url: &str) -> Result<String, KodikError> {
     let agent = util::random_user_agent();
 
     log::info!("GET to {url}...");
@@ -54,7 +54,7 @@ pub(crate) async fn get(client: &Client, url: &str) -> Result<String, KodikError
     Ok(html)
 }
 
-pub(crate) async fn post(
+pub async fn post(
     client: &Client,
     domain: &str,
     endpoint: &str,

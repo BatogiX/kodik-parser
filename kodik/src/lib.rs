@@ -1,10 +1,10 @@
 use crate::cache::Cache;
 use crate::config::{Config, OPTIONS};
-use kodik_parser::{Client, KodikError, KodikResponse};
+use kodik_parser::{Client, KodikResponse};
 use log::LevelFilter;
 use std::io::Write;
 use std::io::{self, BufWriter};
-use std::process::ExitCode;
+use std::process::{Command, ExitCode, Stdio};
 
 mod cache;
 mod config;
@@ -38,9 +38,15 @@ pub async fn run(args: Vec<String>) -> ExitCode {
     if let Some(cache) = cache.as_ref() {
         cache.apply();
     }
-    let client = Client::new();
 
-    let results = parallel(config.urls, client).await;
+    let client = Client::new();
+    let use_lazy = config.lazy || config.player.is_some();
+
+    let exit_code = if use_lazy {
+        run_lazy(config, &client).await
+    } else {
+        run_parallel(config, &client).await
+    };
 
     if let Some(cache) = &mut cache
         && cache.is_changed()
@@ -50,28 +56,44 @@ pub async fn run(args: Vec<String>) -> ExitCode {
         cache.save();
     }
 
+    exit_code
+}
+
+async fn run_parallel(config: Config, client: &Client) -> ExitCode {
+    let results = {
+        let mut set = tokio::task::JoinSet::new();
+        for (idx, url) in config.urls.into_iter().enumerate() {
+            let client = client.clone();
+            set.spawn(async move {
+                let result = kodik_parser::parse(&client, &url).await;
+                (idx, result)
+            });
+        }
+
+        let mut results = set.join_all().await;
+        results.sort_by(|a, b| a.0.cmp(&b.0));
+        results
+    };
+
     let stdout = io::stdout();
     let mut handle = BufWriter::new(stdout.lock());
+
     for (_, res) in results {
         let kodik_response = match res {
-            Ok(kodik_response) => kodik_response,
+            Ok(r) => r,
             Err(e) => {
                 log::error!("{e}");
                 return ExitCode::FAILURE;
             }
         };
 
-        let links = &kodik_response.links;
-        if let Some(link) = [&links.quality_720, &links.quality_480, &links.quality_360]
-            .iter()
-            .find_map(|q| q.first())
-        {
-            if let Err(e) = writeln!(handle, "{}", link.src) {
-                log::error!("{e}");
-                return ExitCode::FAILURE;
-            }
-        } else {
+        let Some(link) = best_link(&kodik_response) else {
             log::error!("no playable links found for this video");
+            return ExitCode::FAILURE;
+        };
+
+        if let Err(e) = writeln!(handle, "{link}") {
+            log::error!("{e}");
             return ExitCode::FAILURE;
         }
     }
@@ -84,20 +106,52 @@ pub async fn run(args: Vec<String>) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-async fn parallel(
-    urls: Vec<String>,
-    client: Client,
-) -> Vec<(usize, Result<KodikResponse, KodikError>)> {
-    let mut set = tokio::task::JoinSet::new();
-    for (idx, url) in urls.into_iter().enumerate() {
-        let client = client.clone();
-        set.spawn(async move {
-            let result = kodik_parser::parser::parse(&client, &url).await;
-            (idx, result)
-        });
-    }
+async fn run_lazy(config: Config, client: &Client) -> ExitCode {
+    for url in config.urls {
+        let kodik_response = match kodik_parser::parse(client, &url).await {
+            Ok(r) => r,
+            Err(e) => {
+                log::error!("{e}");
+                return ExitCode::FAILURE;
+            }
+        };
 
-    let mut results = set.join_all().await;
-    results.sort_by(|a, b| a.0.cmp(&b.0));
-    results
+        let Some(link) = best_link(&kodik_response) else {
+            log::error!("no playable links found for this video");
+            return ExitCode::FAILURE;
+        };
+
+        if let Some(player) = &config.player {
+            if let Err(e) = spawn_player(player, link) {
+                log::error!("{e}");
+                return ExitCode::FAILURE;
+            }
+        } else if let Err(e) = writeln!(io::stdout(), "{link}") {
+            log::error!("{e}");
+            return ExitCode::FAILURE;
+        }
+    }
+    ExitCode::SUCCESS
+}
+
+fn best_link(response: &KodikResponse) -> Option<&str> {
+    [
+        &response.links.quality_720,
+        &response.links.quality_480,
+        &response.links.quality_360,
+    ]
+    .iter()
+    .find_map(|q| q.first())
+    .map(|link| link.src.as_str())
+}
+
+fn spawn_player(player: &str, link: &str) -> Result<(), String> {
+    Command::new(player)
+        .arg(link)
+        .stdin(Stdio::null())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .and_then(|mut child| child.wait().map(|_| ()))
+        .map_err(|e| format!("failed to spawn player '{player}': {e}"))
 }
