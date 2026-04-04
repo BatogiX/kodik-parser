@@ -12,7 +12,12 @@ mod logging;
 
 #[must_use]
 pub async fn run(args: Vec<String>) -> ExitCode {
-    let config = match Config::build(&args) {
+    if args.len() < 2 {
+        eprint!("{}", OPTIONS.help());
+        return ExitCode::FAILURE;
+    }
+
+    let config = match Config::build(args) {
         Ok(config) => {
             logging::setup_logging(config.level_filter);
             config
@@ -24,7 +29,7 @@ pub async fn run(args: Vec<String>) -> ExitCode {
         }
     };
 
-    if args.len() < 2 || config.help {
+    if config.help {
         eprint!("{}", OPTIONS.help());
         return ExitCode::FAILURE;
     }
@@ -35,7 +40,7 @@ pub async fn run(args: Vec<String>) -> ExitCode {
     }
     let client = Client::new();
 
-    let results = parallel(args, client).await;
+    let results = parallel(config.urls, client).await;
 
     if let Some(cache) = &mut cache
         && cache.is_changed()
@@ -80,11 +85,11 @@ pub async fn run(args: Vec<String>) -> ExitCode {
 }
 
 async fn parallel(
-    args: Vec<String>,
+    urls: Vec<String>,
     client: Client,
 ) -> Vec<(usize, Result<KodikResponse, KodikError>)> {
     let mut set = tokio::task::JoinSet::new();
-    for (idx, url) in args.into_iter().skip(1).enumerate() {
+    for (idx, url) in urls.into_iter().enumerate() {
         let client = client.clone();
         set.spawn(async move {
             let result = kodik_parser::parser::parse(&client, &url).await;

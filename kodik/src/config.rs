@@ -60,23 +60,23 @@ impl Options {
     }
 }
 
-pub struct Config<'a> {
-    pub(crate) urls: &'a [String],
-    pub(crate) level_filter: LevelFilter,
-    pub(crate) lazy: bool,
-    pub(crate) help: bool,
-    pub(crate) player: Option<&'a String>,
+pub struct Config {
+    pub urls: Vec<String>,
+    pub level_filter: LevelFilter,
+    pub lazy: bool,
+    pub help: bool,
+    pub player: Option<String>,
 }
 
-impl<'a> Config<'a> {
-    pub(crate) fn build(args: &'a [String]) -> Result<Self, String> {
-        let mut urls = &[];
+impl Config {
+    pub fn build(args: Vec<String>) -> Result<Self, String> {
+        let mut urls = Vec::new();
         let mut level_filter = LevelFilter::Info;
         let mut lazy = false;
         let mut help = false;
         let mut player = None;
 
-        let mut args = args.iter().skip(1);
+        let mut args = args.into_iter().skip(1);
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "-v" | "--verbose" => level_filter = LevelFilter::Debug,
@@ -101,6 +101,7 @@ impl<'a> Config<'a> {
 For more information, try '{CYAN_HIGH_INTENSITY_BOLD}--help{RESET}'.",
                         ));
                     }
+                    urls.push(arg);
                 }
             }
         }
