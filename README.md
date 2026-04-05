@@ -1,6 +1,6 @@
-# kodik-parser
+# kodik
 
-A Rust library for getting direct links to files from Kodik.
+ClI and library written in Rust for getting direct links to files from Kodik.
 
 ## Features
 
@@ -12,6 +12,9 @@ A Rust library for getting direct links to files from Kodik.
 
 # Usage
 ### Example
+```sh
+cargo add kodik-parser
+```
 ```rust
 use reqwest::Client;
 use kodik_parser::async_impl;
@@ -33,7 +36,17 @@ cargo install kodik
 ```
 ```sh
 kodik
+Kodik parser to get direct links on videos
+
 Usage: kodik [URLS]
+
+Options:
+  -l, --lazy                   Outputs one by one (turns off parallelism)
+  -p, --player <MEDIA-PLAYER>  Specify media player (implies --lazy)
+  -v, --verbose                Use verbose output (-vv very verbose)
+  -s, --silent                 Do not print log messages
+  -q, --quality                Specify video quality [possible values: 360, 480, 720] (default: 720)
+  -h, --help                   Print help
 ```
 ```sh
 kodik https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p
@@ -44,4 +57,8 @@ kodik https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p 
 #### You can also pipe output in your favourite media player
 ```sh
 kodik https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p | mpv --playlist=-
+```
+OR
+```sh
+kodik --player mpv https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p 
 ```
