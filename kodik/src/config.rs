@@ -12,7 +12,7 @@ struct OptionHelp {
     description: &'static str,
 }
 
-pub struct Options([OptionHelp; 5]);
+pub struct Options([OptionHelp; 6]);
 
 impl Options {
     const fn default() -> Self {
@@ -30,8 +30,12 @@ impl Options {
                 description: "Use verbose output (-vv very verbose)",
             },
             OptionHelp {
-                flags: "-q, --quiet",
+                flags: "-s, --silent",
                 description: "Do not print log messages",
+            },
+            OptionHelp {
+                flags: "-q, --quality",
+                description: "Specify video quality [possible values: 360, 480, 720] (default: 720)",
             },
             OptionHelp {
                 flags: "-h, --help",
@@ -81,7 +85,7 @@ impl Config {
             match arg.as_str() {
                 "-v" | "--verbose" => level_filter = LevelFilter::Debug,
                 "-vv" => level_filter = LevelFilter::Trace,
-                "-q" | "--quiet" => level_filter = LevelFilter::Off,
+                "-s" | "--silent" => level_filter = LevelFilter::Off,
                 "-l" | "--lazy" => lazy = true,
                 "-p" | "--player" => {
                     if let Some(p) = args.next() {
