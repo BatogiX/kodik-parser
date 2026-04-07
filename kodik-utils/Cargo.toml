@@ -18,7 +18,7 @@ regex.workspace = true
 log.workspace = true
 
 thiserror = { version = "2.0.18", default-features = false }
-ua_generator = { version = "0.5.55", default-features = false }
+ua_generator = { version = "0.5.56", default-features = false }
 
 [lints]
 workspace = true
