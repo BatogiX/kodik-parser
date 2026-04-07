@@ -20,6 +20,8 @@ log.workspace = true
 serde.workspace = true
 
 dirs = { version = "6.0.0", default-features = false }
+ctrlc = "3.5.2"
+shared_child = "1.1.1"
 
 [lints]
 workspace = true
