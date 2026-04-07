@@ -1,11 +1,30 @@
 use log::LevelFilter;
-use std::fmt::Write;
+use std::{fmt::Write, sync::LazyLock};
 
 use crate::logging::{
     CYAN, CYAN_HIGH_INTENSITY_BOLD, GREEN_HIGH_INTENSITY_BOLD, RESET, YELLOW_BOLD,
 };
 
 pub static OPTIONS: Options = Options::default();
+static WIDTH: LazyLock<usize> = LazyLock::new(|| {
+    OPTIONS
+        .0
+        .iter()
+        .map(|opt| opt.flags.len())
+        .max()
+        .unwrap_or(0)
+});
+
+static USAGE: LazyLock<String> = LazyLock::new(|| {
+    format!("{GREEN_HIGH_INTENSITY_BOLD}Usage:{RESET} {CYAN_HIGH_INTENSITY_BOLD}kodik{RESET} {CYAN}[OPTIONS] [URL]...{RESET}
+
+{GREEN_HIGH_INTENSITY_BOLD}Arguments:{RESET}
+  {CYAN}{:WIDTH$}{RESET}  {}
+
+{GREEN_HIGH_INTENSITY_BOLD}Options:{RESET}",
+        "[URL]...", "Url(s) to parse"
+    )
+});
 
 struct OptionHelp {
     flags: &'static str,
@@ -45,17 +64,12 @@ impl Options {
     }
 
     pub fn help(&self) -> String {
-        let width = self.0.iter().map(|opt| opt.flags.len()).max().unwrap_or(0);
-        let mut help = format!(
-            "Kodik parser to get direct links on videos\n
-{GREEN_HIGH_INTENSITY_BOLD}Usage:{RESET} {CYAN_HIGH_INTENSITY_BOLD}kodik{RESET} {CYAN}[URLS]{RESET}\n
-{GREEN_HIGH_INTENSITY_BOLD}Options:{RESET}",
-        );
+        let mut help = USAGE.clone();
 
         for opt in &self.0 {
             let _ = write!(
                 help,
-                "\n  {CYAN_HIGH_INTENSITY_BOLD}{:width$}{RESET}  {}",
+                "\n  {CYAN_HIGH_INTENSITY_BOLD}{:WIDTH$}{RESET}  {}",
                 opt.flags, opt.description
             );
         }
@@ -101,7 +115,7 @@ impl Config {
                     if arg.starts_with('-') {
                         return Err(format!(
                             "unexpected argument '{YELLOW_BOLD}{arg}{RESET}' found\n
-{GREEN_HIGH_INTENSITY_BOLD}Usage:{RESET} {CYAN_HIGH_INTENSITY_BOLD}kodik{RESET} {CYAN}[URLS]{RESET}\n
+{USAGE:#?}\n
 For more information, try '{CYAN_HIGH_INTENSITY_BOLD}--help{RESET}'.",
                         ));
                     }

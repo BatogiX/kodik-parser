@@ -17,22 +17,18 @@ pub fn decode_links(kodik_response: &mut KodikResponse) -> Result<(), KodikError
         link.src = decode_link(&link.src)?;
     }
 
-    let base_360 = kodik_response
-        .links
-        .quality_360
-        .first()
-        .map(|l| l.src.clone());
+    let base_360 = kodik_response.links.quality_360.first();
 
     for link in &mut kodik_response.links.quality_480 {
-        link.src = match &base_360 {
-            Some(src) => src.replace("/360.mp4", "/480.mp4"),
+        link.src = match base_360 {
+            Some(link) => link.src.replace("/360.mp4", "/480.mp4"),
             None => decode_link(&link.src)?,
         };
     }
 
     for link in &mut kodik_response.links.quality_720 {
-        link.src = match &base_360 {
-            Some(src) => src.replace("/360.mp4", "/720.mp4"),
+        link.src = match base_360 {
+            Some(link) => link.src.replace("/360.mp4", "/720.mp4"),
             None => decode_link(&link.src)?,
         };
     }
@@ -58,14 +54,23 @@ fn decode_link(src: &str) -> Result<String, KodikError> {
     Err(KodikError::LinkCannotBeDecoded(src.to_owned()))
 }
 
-fn try_decode(src: &str, shift: u8) -> Result<String, KodikError> {
-    let mut decoded_caesar = caesar_cipher(src, shift);
+fn try_decode(encoded: &str, shift: u8) -> Result<String, KodikError> {
+    let mut decoded_caesar = caesar_cipher(encoded, shift);
 
     while !decoded_caesar.len().is_multiple_of(4) {
         decoded_caesar.push('=');
     }
 
-    decode_base64(&decoded_caesar)
+    let decode_result = decode_base64(&decoded_caesar);
+
+    if let Ok(mut decoded) = decode_result {
+        if !decoded.starts_with("https:") {
+            decoded.insert_str(0, "https:");
+        }
+        return Ok(decoded);
+    }
+
+    decode_result
 }
 
 fn caesar_cipher(text: &str, shift: u8) -> String {
