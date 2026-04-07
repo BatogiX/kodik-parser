@@ -580,6 +580,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "kodik-utils"
+version = "0.1.0"
+
+[[package]]
 name = "libc"
 version = "0.2.184"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "kodik",
-    "kodik-parser",
+    "kodik-parser", "kodik-utils",
 ]
 resolver = "3"
 
