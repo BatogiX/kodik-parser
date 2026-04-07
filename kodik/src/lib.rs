@@ -1,6 +1,6 @@
 use crate::cache::Cache;
 use crate::config::{COMMAND, Config, Quality};
-use kodik_parser::{Client, KodikResponse};
+use kodik_parser::{Client, Response};
 use log::LevelFilter;
 use std::io::Write;
 use std::io::{self, BufWriter};
@@ -130,7 +130,7 @@ async fn run_lazy(config: Config, client: &Client) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn get_link(response: &KodikResponse, quality: Quality) -> Option<&str> {
+fn get_link(response: &Response, quality: Quality) -> Option<&str> {
     match quality {
         Quality::P360 => response
             .links

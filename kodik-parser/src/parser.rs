@@ -1,12 +1,11 @@
-use reqwest::Client;
-use std::sync::LazyLock;
-
 use crate::decoder;
-use crate::scraper::{get, post};
-use crate::{KODIK_STATE, KodikResponse};
+use crate::scraper;
+use crate::{KODIK_STATE, Response};
 use kodik_utils::KodikError;
 use regex::Regex;
+use reqwest::Client;
 use serde::Serialize;
+use std::sync::LazyLock;
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct VideoInfo<'a> {
@@ -222,14 +221,14 @@ pub fn extract_endpoint(html: &str) -> Result<String, KodikError> {
 /// println!("Link with 720p quality is: {link_720}");
 /// # }
 /// ```
-pub async fn parse(client: &Client, url: &str) -> Result<KodikResponse, KodikError> {
+pub async fn parse(client: &Client, url: &str) -> Result<Response, KodikError> {
     let domain = kodik_utils::extract_domain(url)?;
     let mut html = String::new();
 
     let video_info = if let Ok(video_info) = VideoInfo::from_url(url) {
         video_info
     } else {
-        html = get(client, url).await?;
+        html = scraper::get(client, url).await?;
         VideoInfo::from_response(&html)?
     };
 
@@ -237,7 +236,9 @@ pub async fn parse(client: &Client, url: &str) -> Result<KodikResponse, KodikErr
         let endpoint = KODIK_STATE.endpoint();
 
         if !endpoint.is_empty() {
-            if let Ok(mut kodik_response) = post(client, domain, &endpoint, &video_info).await {
+            if let Ok(mut kodik_response) =
+                scraper::post(client, domain, &endpoint, &video_info).await
+            {
                 decoder::decode_links(&mut kodik_response)?;
                 return Ok(kodik_response);
             }
@@ -249,13 +250,13 @@ pub async fn parse(client: &Client, url: &str) -> Result<KodikResponse, KodikErr
             log::warn!("Endpoint not found in cache, updating...");
             let fetched;
             let page_html = if html.is_empty() {
-                fetched = get(client, url).await?;
+                fetched = scraper::get(client, url).await?;
                 &fetched
             } else {
                 &html
             };
             let player_url = extract_player_url(domain, page_html)?;
-            let player_html = get(client, &player_url).await?;
+            let player_html = scraper::get(client, &player_url).await?;
             let new_endpoint = extract_endpoint(&player_html)?;
             KODIK_STATE.finish_update(new_endpoint);
             continue;

@@ -1,6 +1,5 @@
+use crate::{KODIK_STATE, scraper::Response};
 use base64::{Engine as _, engine::general_purpose};
-
-use crate::{KODIK_STATE, scraper::KodikResponse};
 use kodik_utils::KodikError;
 
 const MIN_SHIFT: u8 = 0;
@@ -11,7 +10,7 @@ const MAX_SHIFT: u8 = 26;
 /// # Errors
 ///
 /// Returns a `KodikError` if decoding fails for any of the links.
-pub fn decode_links(kodik_response: &mut KodikResponse) -> Result<(), KodikError> {
+pub fn decode_links(kodik_response: &mut Response) -> Result<(), KodikError> {
     log::debug!("Decoding links...");
 
     for link in &mut kodik_response.links.quality_360 {
@@ -144,7 +143,7 @@ mod tests {
 
     #[test]
     fn decoding_links() {
-        let mut kodik_response = KodikResponse {
+        let mut kodik_response = Response {
     links: Links {
         quality_360: vec![
             Link {

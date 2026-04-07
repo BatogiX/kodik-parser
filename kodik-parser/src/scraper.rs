@@ -1,15 +1,14 @@
+use crate::parser::VideoInfo;
+use kodik_utils::KodikError;
 use reqwest::{
     Client,
     header::{ACCEPT, HeaderName, ORIGIN, REFERER, USER_AGENT},
 };
 use serde::Deserialize;
 
-use crate::parser::VideoInfo;
-use kodik_utils::KodikError;
-
 #[derive(Debug, Deserialize)]
 /// Response structure for player data containing video links
-pub struct KodikResponse {
+pub struct Response {
     /// Available video links organized by quality
     pub links: Links,
 }
@@ -60,7 +59,7 @@ pub async fn post(
     domain: &str,
     endpoint: &str,
     video_info: &VideoInfo<'_>,
-) -> Result<KodikResponse, KodikError> {
+) -> Result<Response, KodikError> {
     let user_agent = kodik_utils::random_user_agent();
     let url = format!("https://{domain}{endpoint}");
 
@@ -154,7 +153,7 @@ mod tests {
             }
         }"#;
 
-        let _: KodikResponse = serde_json::from_str(json).unwrap();
+        let _: Response = serde_json::from_str(json).unwrap();
     }
 
     #[tokio::test]
