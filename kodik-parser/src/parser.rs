@@ -232,13 +232,12 @@ pub fn extract_endpoint(html: &str) -> Result<String, KodikError> {
 ///
 /// # Example
 /// ```no_run
-/// use reqwest::Client;
-/// use kodik_parser::async_impl;
+/// use kodik_parser::Client;
 ///
 /// # async fn run() {
 /// let client = Client::new();
 /// let url = "https://kodikplayer.com/some-type/some-id/some-hash/some-quality";
-/// let kodik_response = async_impl::parse(&client, url).await.unwrap();
+/// let kodik_response = kodik_parser::parse(&client, url).await.unwrap();
 ///
 /// let link_720 = &kodik_response.links.quality_720.first().unwrap().src;
 /// println!("Link with 720p quality is: {link_720}");

@@ -17,17 +17,22 @@ pub struct Cache {
 }
 
 impl Cache {
-    pub fn load() -> Option<Self> {
-        let cache_path = CACHE_PATH.as_ref()?;
+    pub fn load() -> Self {
+        let Some(cache_path) = CACHE_PATH.as_ref() else {
+            return Self::default();
+        };
 
-        if !fs::exists(cache_path).ok()? {
-            fs::create_dir_all(cache_path.parent()?).ok()?;
-            File::create(cache_path).ok();
-            return None;
+        if !cache_path.exists() {
+            if let Some(parent) = cache_path.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+            let _ = File::create(cache_path);
         }
 
-        serde_json::from_str(&fs::read_to_string(cache_path).ok()?)
-            .unwrap_or_else(|_| Some(Self::default()))
+        fs::read_to_string(cache_path).map_or_else(
+            |_| Self::default(),
+            |content| serde_json::from_str(&content).unwrap_or_default(),
+        )
     }
 
     pub fn save(&self) -> Option<()> {
@@ -61,11 +66,11 @@ mod tests {
     use super::*;
 
     fn load_test() -> Cache {
-        let cache = Cache::load().unwrap();
+        let mut cache = Cache::load();
 
-        if cache.endpoint.is_empty() {
+        if cache.endpoint.is_empty() || cache.shift == 0 {
             let cache_path = CACHE_PATH.as_ref().unwrap();
-            let cache = Cache {
+            cache = Cache {
                 shift: 13,
                 endpoint: String::from("/abcd"),
             };
@@ -76,8 +81,8 @@ mod tests {
         cache
     }
 
-    #[tokio::test]
-    async fn apply_test() {
+    #[test]
+    fn apply_test() {
         let cache = load_test();
         assert!(KODIK_STATE.endpoint().is_empty());
         assert_eq!(KODIK_STATE.shift(), 0);
