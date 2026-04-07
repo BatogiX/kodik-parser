@@ -13,9 +13,9 @@ dependencies = [
 
 [[package]]
 name = "arc-swap"
-version = "1.9.0"
+version = "1.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a07d1f37ff60921c83bdfc7407723bdefe89b44b98a9b772f225c8f9d67141a6"
+checksum = "6a3a1fd6f75306b68087b831f025c712524bcb19aad54e557b1129cfa0a2b207"
 dependencies = [
  "rustversion",
 ]
@@ -74,9 +74,9 @@ checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
 
 [[package]]
 name = "cc"
-version = "1.2.58"
+version = "1.2.59"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1e928d4b69e3077709075a938a05ffbedfa53a84c8f766efbf8220bb1ff60e1"
+checksum = "b7a4d3ec6524d28a329fc53654bbadc9bdd7b0431f5d65f1a56ffb28a1ee5283"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -569,13 +569,24 @@ version = "2.1.0"
 dependencies = [
  "arc-swap",
  "base64",
+ "kodik-utils",
  "log",
  "regex",
  "reqwest",
  "serde",
  "serde_json",
- "thiserror 2.0.18",
  "tokio",
+]
+
+[[package]]
+name = "kodik-utils"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "log",
+ "regex",
+ "reqwest",
+ "thiserror 2.0.18",
  "ua_generator",
 ]
 
@@ -1311,9 +1322,9 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "ua_generator"
-version = "0.5.55"
+version = "0.5.56"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35dad9e17c849e775b1d19e6276fe0c721640f8bd1f868460fd737c117c6531e"
+checksum = "7f4e6d722745015f88b7f4b7ceef06b54b9bfcf96f96c55f0153dd5d5b154c4c"
 dependencies = [
  "fastrand",
 ]
