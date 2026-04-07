@@ -1,5 +1,5 @@
 use crate::cache::Cache;
-use crate::config::{Config, OPTIONS};
+use crate::config::{COMMAND, Config, Quality};
 use kodik_parser::{Client, KodikResponse};
 use log::LevelFilter;
 use std::io::Write;
@@ -13,7 +13,7 @@ mod logging;
 #[must_use]
 pub async fn run(args: Vec<String>) -> ExitCode {
     if args.len() < 2 {
-        eprint!("{}", OPTIONS.help());
+        eprint!("{}", COMMAND.help());
         return ExitCode::FAILURE;
     }
 
@@ -30,7 +30,7 @@ pub async fn run(args: Vec<String>) -> ExitCode {
     };
 
     if config.help {
-        eprint!("{}", OPTIONS.help());
+        eprint!("{}", COMMAND.help());
         return ExitCode::FAILURE;
     }
 
@@ -87,7 +87,7 @@ async fn run_parallel(config: Config, client: &Client) -> ExitCode {
             }
         };
 
-        let Some(link) = best_link(&kodik_response) else {
+        let Some(link) = get_link(&kodik_response, config.quality) else {
             log::error!("no playable links found for this video");
             return ExitCode::FAILURE;
         };
@@ -116,7 +116,7 @@ async fn run_lazy(config: Config, client: &Client) -> ExitCode {
             }
         };
 
-        let Some(link) = best_link(&kodik_response) else {
+        let Some(link) = get_link(&kodik_response, config.quality) else {
             log::error!("no playable links found for this video");
             return ExitCode::FAILURE;
         };
@@ -134,15 +134,24 @@ async fn run_lazy(config: Config, client: &Client) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn best_link(response: &KodikResponse) -> Option<&str> {
-    [
-        &response.links.quality_720,
-        &response.links.quality_480,
-        &response.links.quality_360,
-    ]
-    .iter()
-    .find_map(|q| q.first())
-    .map(|link| link.src.as_str())
+fn get_link(response: &KodikResponse, quality: Quality) -> Option<&str> {
+    match quality {
+        Quality::P360 => response
+            .links
+            .quality_360
+            .first()
+            .map(|link| link.src.as_str()),
+        Quality::P480 => response
+            .links
+            .quality_480
+            .first()
+            .map(|link| link.src.as_str()),
+        Quality::P720 => response
+            .links
+            .quality_720
+            .first()
+            .map(|link| link.src.as_str()),
+    }
 }
 
 fn spawn_player(player: &str, link: &str) -> Result<(), String> {

@@ -1,6 +1,4 @@
-use env_logger::Builder;
-use log::{Level, LevelFilter};
-use std::io::Write;
+use log::{Level, LevelFilter, Log, Metadata, Record};
 
 pub const CYAN: &str = "\x1b[0;36m";
 pub const GREEN_HIGH_INTENSITY_BOLD: &str = "\x1b[1;92m";
@@ -12,25 +10,35 @@ const BLUE_BOLD: &str = "\x1b[1;34m";
 const BOLD: &str = "\x1b[1m";
 const DIM: &str = "\x1b[2m";
 
-pub fn setup_logging(level_filter: LevelFilter) {
-    Builder::new()
-        .format(|buf, record| match record.level() {
-            Level::Info => writeln!(buf, "{BLUE_BOLD}::{RESET} {BOLD}{}{RESET}", record.args()),
-            Level::Debug => writeln!(buf, "  {BLUE_BOLD}->{RESET} {}", record.args()),
-            Level::Warn => writeln!(
-                buf,
+struct KodikLogger;
+
+impl Log for KodikLogger {
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        metadata.level() <= log::max_level()
+    }
+
+    fn log(&self, record: &Record) {
+        if !self.enabled(record.metadata()) {
+            return;
+        }
+        match record.level() {
+            Level::Error => eprintln!("{RED_BOLD}error:{RESET} {BOLD}{}{RESET}", record.args()),
+            Level::Warn => eprintln!(
                 "{YELLOW_BOLD}warning:{RESET} {BOLD}{}{RESET}",
                 record.args()
             ),
-            Level::Error => writeln!(
-                buf,
-                "{RED_BOLD}error:{RESET} {BOLD}{}{RESET}",
-                record.args()
-            ),
-            Level::Trace => writeln!(buf, "{DIM}{}{RESET}", record.args()),
-        })
-        .filter(None, LevelFilter::Off)
-        .filter_module("", level_filter)
-        .filter_module("kodik_parser", level_filter)
-        .init();
+            Level::Info => eprintln!("{BLUE_BOLD}::{RESET} {BOLD}{}{RESET}", record.args()),
+            Level::Debug => eprintln!("  {BLUE_BOLD}->{RESET} {}", record.args()),
+            Level::Trace => eprintln!("{DIM}{}{RESET}", record.args()),
+        }
+    }
+
+    fn flush(&self) {}
+}
+
+static LOGGER: KodikLogger = KodikLogger;
+
+pub fn setup_logging(level_filter: LevelFilter) {
+    log::set_logger(&LOGGER).ok();
+    log::set_max_level(level_filter);
 }

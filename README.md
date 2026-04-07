@@ -17,17 +17,18 @@ ClI and library written in Rust for getting direct links to files from Kodik.
 cargo install kodik
 ```
 ```sh
-kodik
-Kodik parser to get direct links on videos
+./kodik
+Usage: kodik [OPTIONS] [URL]...
 
-Usage: kodik [URLS]
+Arguments:
+  [URL]...                     Url(s) to parse
 
 Options:
   -l, --lazy                   Outputs one by one (turns off parallelism)
   -p, --player <MEDIA-PLAYER>  Specify media player (implies --lazy)
   -v, --verbose                Use verbose output (-vv very verbose)
   -s, --silent                 Do not print log messages
-  -q, --quality                Specify video quality [possible values: 360, 480, 720] (default: 720)
+  -q, --quality <QUALITY>      Specify video quality [possible values: 360, 480, 720] (default: 720)
   -h, --help                   Print help
 ```
 ```sh
