@@ -21,6 +21,11 @@ impl Log for KodikLogger {
         if !self.enabled(record.metadata()) {
             return;
         }
+
+        if !record.target().starts_with("kodik") {
+            return;
+        }
+
         match record.level() {
             Level::Error => eprintln!("{RED_BOLD}error:{RESET} {BOLD}{}{RESET}", record.args()),
             Level::Warn => eprintln!(
