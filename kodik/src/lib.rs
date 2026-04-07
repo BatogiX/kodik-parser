@@ -2,11 +2,9 @@ use crate::cache::Cache;
 use crate::config::{COMMAND, Config, Quality};
 use kodik_parser::{Client, Response};
 use log::LevelFilter;
-use shared_child::SharedChild;
 use std::io::Write;
 use std::io::{self, BufWriter};
-use std::process::{Command, ExitCode, Stdio};
-use std::sync::{Arc, Mutex, Once, Weak};
+use std::process::ExitCode;
 
 mod cache;
 mod config;
@@ -153,45 +151,64 @@ fn get_link(response: &Response, quality: Quality) -> Option<&str> {
 }
 
 fn spawn_player(player: &str, link: &str) -> Result<(), String> {
-    static CURRENT_CHILD: Mutex<Option<Weak<SharedChild>>> = Mutex::new(None);
-    static INIT_HANDLER: Once = Once::new();
+    #[cfg(target_os = "windows")]
+    {
+        use shared_child::SharedChild;
+        use std::process::{self, Command, Stdio};
+        use std::sync::{Arc, Mutex, Once, Weak};
 
-    INIT_HANDLER.call_once(|| {
-        ctrlc::set_handler(move || {
-            if let Ok(lock) = CURRENT_CHILD.lock()
-                && let Some(weak_child) = lock.as_ref()
-                && let Some(child) = weak_child.upgrade()
-            {
-                let _ = child.kill();
-            }
-            std::process::exit(0);
-        })
-        .expect("Error setting Ctrl-C handler");
-    });
+        static CURRENT_CHILD: Mutex<Option<Weak<SharedChild>>> = Mutex::new(None);
+        static INIT_HANDLER: Once = Once::new();
 
-    let child = Arc::new(
-        SharedChild::spawn(
-            Command::new(player)
-                .arg(link)
-                .stdin(Stdio::null())
-                .stdout(Stdio::inherit())
-                .stderr(Stdio::inherit()),
-        )
-        .map_err(|e| format!("failed to spawn player '{player}': {e}"))?,
-    );
+        INIT_HANDLER.call_once(|| {
+            ctrlc::set_handler(move || {
+                if let Ok(lock) = CURRENT_CHILD.lock()
+                    && let Some(weak_child) = lock.as_ref()
+                    && let Some(child) = weak_child.upgrade()
+                {
+                    let _ = child.kill();
+                }
+                process::exit(0);
+            })
+            .expect("Error setting Ctrl-C handler");
+        });
 
-    if let Ok(mut lock) = CURRENT_CHILD.lock() {
-        *lock = Some(Arc::downgrade(&child));
+        let child = Arc::new(
+            SharedChild::spawn(
+                Command::new(player)
+                    .arg(link)
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::inherit())
+                    .stderr(Stdio::inherit()),
+            )
+            .map_err(|e| format!("failed to spawn player '{player}': {e}"))?,
+        );
+
+        if let Ok(mut lock) = CURRENT_CHILD.lock() {
+            *lock = Some(Arc::downgrade(&child));
+        }
+
+        let result = child
+            .wait()
+            .map(|_| ())
+            .map_err(|e| format!("failed to wait for player '{player}': {e}"));
+
+        if let Ok(mut lock) = CURRENT_CHILD.lock() {
+            *lock = None;
+        }
+
+        result
     }
 
-    let result = child
-        .wait()
-        .map(|_| ())
-        .map_err(|e| format!("failed to wait for player '{player}': {e}"));
-
-    if let Ok(mut lock) = CURRENT_CHILD.lock() {
-        *lock = None;
+    #[cfg(target_os = "linux")]
+    {
+        Command::new(player)
+            .arg(link)
+            .stdin(Stdio::null())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .spawn()
+            .and_then(|mut child| child.wait().map(|_| ()))
+            .map_err(|e| format!("failed to spawn player '{player}': {e}"))
     }
-
-    result
 }
