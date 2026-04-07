@@ -1,6 +1,7 @@
 use base64::{Engine as _, engine::general_purpose};
 
-use crate::{KODIK_STATE, error::KodikError, scraper::KodikResponse};
+use crate::{KODIK_STATE, scraper::KodikResponse};
+use kodik_utils::KodikError;
 
 const MIN_SHIFT: u8 = 0;
 const MAX_SHIFT: u8 = 26;

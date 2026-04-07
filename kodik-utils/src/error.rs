@@ -1,8 +1,8 @@
-//! Error types for the Kodik parser library.
+//! Error types for the Kodik library.
 use std::string;
 use thiserror::Error;
 
-/// Errors from kodik-parser.
+/// Errors from kodik.
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum KodikError {

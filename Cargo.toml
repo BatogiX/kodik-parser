@@ -1,8 +1,5 @@
 [workspace]
-members = [
-    "kodik",
-    "kodik-parser", "kodik-shiki",
-]
+members = ["kodik","kodik-parser", "kodik-utils", "kodik-shiki"]
 resolver = "3"
 
 [workspace.dependencies]
@@ -10,7 +7,9 @@ serde = { version = "1.0.228", features = ["derive"] }
 log = { version = "0.4.29", default-features = false }
 tokio = { version = "1.50.0", default-features = false, features = ["rt-multi-thread", "macros"] }
 serde_json = "1.0.149"
-arc-swap = { version = "1.9.0", default-features = false }
+reqwest = { version = "0.13.2", default-features = false, features = ["json","rustls","form"] }
+base64 = "0.22.1"
+regex = "1.12.3"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

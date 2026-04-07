@@ -4,7 +4,8 @@ use reqwest::{
 };
 use serde::Deserialize;
 
-use crate::{error::KodikError, parser::VideoInfo, util};
+use crate::parser::VideoInfo;
+use kodik_utils::KodikError;
 
 #[derive(Debug, Deserialize)]
 /// Response structure for player data containing video links
@@ -37,7 +38,7 @@ pub struct Link {
 }
 
 pub async fn get(client: &Client, url: &str) -> Result<String, KodikError> {
-    let agent = util::random_user_agent();
+    let agent = kodik_utils::random_user_agent();
 
     log::info!("GET to {url}...");
 
@@ -60,7 +61,7 @@ pub async fn post(
     endpoint: &str,
     video_info: &VideoInfo<'_>,
 ) -> Result<KodikResponse, KodikError> {
-    let user_agent = util::random_user_agent();
+    let user_agent = kodik_utils::random_user_agent();
     let url = format!("https://{domain}{endpoint}");
 
     log::info!("POST to {url}...");

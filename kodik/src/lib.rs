@@ -35,9 +35,7 @@ pub async fn run(args: Vec<String>) -> ExitCode {
     }
 
     let mut cache = Cache::load();
-    if let Some(cache) = cache.as_ref() {
-        cache.apply();
-    }
+    cache.apply();
 
     let client = Client::new();
     let use_lazy = config.lazy || config.player.is_some();
@@ -48,9 +46,7 @@ pub async fn run(args: Vec<String>) -> ExitCode {
         run_parallel(config, &client).await
     };
 
-    if let Some(cache) = &mut cache
-        && cache.is_changed()
-    {
+    if cache.is_changed() {
         log::debug!("Updating cache...");
         cache.update();
         cache.save();
