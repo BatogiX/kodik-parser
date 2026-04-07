@@ -2,9 +2,9 @@ use reqwest::Client;
 use std::sync::LazyLock;
 
 use crate::decoder;
-use crate::error::KodikError;
 use crate::scraper::{get, post};
 use crate::{KODIK_STATE, KodikResponse};
+use kodik_utils::KodikError;
 use regex::Regex;
 use serde::Serialize;
 
@@ -118,27 +118,6 @@ impl<'a> VideoInfo<'a> {
     }
 }
 
-/// Extracts the domain from a URL.
-///
-/// # Errors
-///
-/// Returns `KodikError::Regex` if no valid domain is found in the URL.
-pub fn extract_domain(url: &str) -> Result<&str, KodikError> {
-    static DOMAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]")
-            .expect("valid regex syntax")
-    });
-
-    log::debug!("Extracting domain...");
-    let domain = DOMAIN_REGEX
-        .find(url)
-        .ok_or(KodikError::Regex("no valid domain found"))?
-        .as_str();
-    log::trace!("Extracted domain: {domain}");
-
-    Ok(domain)
-}
-
 /// Extracts the player URL from response text.
 ///
 /// # Errors
@@ -245,7 +224,7 @@ pub fn extract_endpoint(html: &str) -> Result<String, KodikError> {
 /// # }
 /// ```
 pub async fn parse(client: &Client, url: &str) -> Result<KodikResponse, KodikError> {
-    let domain = extract_domain(url)?;
+    let domain = kodik_utils::extract_domain(url)?;
     let mut html = String::new();
 
     let video_info = if let Ok(video_info) = VideoInfo::from_url(url) {
@@ -290,20 +269,6 @@ pub async fn parse(client: &Client, url: &str) -> Result<KodikResponse, KodikErr
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn getting_domain() {
-        let url_with_scheme =
-            "https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p";
-        let url_without_scheme =
-            "kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p";
-
-        assert_eq!("kodikplayer.com", extract_domain(url_with_scheme).unwrap());
-        assert_eq!(
-            "kodikplayer.com",
-            extract_domain(url_without_scheme).unwrap()
-        );
-    }
 
     #[test]
     fn v_info_from_response_test() {
