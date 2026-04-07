@@ -1,12 +1,5 @@
 [workspace]
-
-
-
-members = [
-    "kodik",
-    "kodik-parser", "kodik-utils",
-]
-
+members = ["kodik","kodik-parser", "kodik-utils"]
 resolver = "3"
 
 [workspace.dependencies]
