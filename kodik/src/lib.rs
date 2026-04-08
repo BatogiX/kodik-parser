@@ -4,7 +4,7 @@ use kodik_parser::{Client, Response};
 use log::LevelFilter;
 use std::io::Write;
 use std::io::{self, BufWriter};
-use std::process::ExitCode;
+use std::process::{Command, ExitCode, Stdio};
 
 mod cache;
 mod config;
@@ -151,66 +151,26 @@ fn get_link(response: &Response, quality: Quality) -> Option<&str> {
 }
 
 fn spawn_player(player: &str, link: &str) -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    {
-        use shared_child::SharedChild;
-        use std::process::{self, Command, Stdio};
-        use std::sync::{Arc, Mutex, Once, Weak};
+    let mut parts = player.split_whitespace();
+    let mut program = parts.next().ok_or("empty player")?;
 
-        static CURRENT_CHILD: Mutex<Option<Weak<SharedChild>>> = Mutex::new(None);
-        static INIT_HANDLER: Once = Once::new();
+    // Patch for Windows to terminate mpv with Ctrl+C
+    program = if cfg!(target_os = "windows") && program == "mpv" {
+        "mpv.com"
+    } else {
+        program
+    };
 
-        INIT_HANDLER.call_once(|| {
-            ctrlc::set_handler(move || {
-                if let Ok(lock) = CURRENT_CHILD.lock()
-                    && let Some(weak_child) = lock.as_ref()
-                    && let Some(child) = weak_child.upgrade()
-                {
-                    let _ = child.kill();
-                }
-                process::exit(0);
-            })
-            .expect("Error setting Ctrl-C handler");
-        });
-
-        let child = Arc::new(
-            SharedChild::spawn(
-                Command::new(player)
-                    .arg(link)
-                    .stdin(Stdio::null())
-                    .stdout(Stdio::inherit())
-                    .stderr(Stdio::inherit()),
-            )
-            .map_err(|e| format!("failed to spawn player '{player}': {e}"))?,
-        );
-
-        if let Ok(mut lock) = CURRENT_CHILD.lock() {
-            *lock = Some(Arc::downgrade(&child));
-        }
-
-        let result = child
-            .wait()
-            .map(|_| ())
-            .map_err(|e| format!("failed to wait for player '{player}': {e}"));
-
-        if let Ok(mut lock) = CURRENT_CHILD.lock() {
-            *lock = None;
-        }
-
-        result
+    let mut cmd = Command::new(program);
+    for arg in parts {
+        cmd.arg(arg);
     }
 
-    #[cfg(target_os = "linux")]
-    {
-        use std::process::{Command, Stdio};
-
-        Command::new(player)
-            .arg(link)
-            .stdin(Stdio::null())
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .spawn()
-            .and_then(|mut child| child.wait().map(|_| ()))
-            .map_err(|e| format!("failed to spawn player '{player}': {e}"))
-    }
+    cmd.arg(link)
+        .stdin(Stdio::null())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .and_then(|mut child| child.wait().map(|_| ()))
+        .map_err(|e| format!("failed to spawn player '{program}': {e}"))
 }
