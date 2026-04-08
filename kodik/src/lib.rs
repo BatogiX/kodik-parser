@@ -202,6 +202,8 @@ fn spawn_player(player: &str, link: &str) -> Result<(), String> {
 
     #[cfg(target_os = "linux")]
     {
+        use std::process::{Command, Stdio};
+
         Command::new(player)
             .arg(link)
             .stdin(Stdio::null())
