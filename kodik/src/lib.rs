@@ -10,6 +10,9 @@ mod cache;
 mod config;
 mod logging;
 
+#[cfg(test)]
+mod tests;
+
 #[must_use]
 pub async fn run(args: Vec<String>) -> ExitCode {
     if args.len() < 2 {
