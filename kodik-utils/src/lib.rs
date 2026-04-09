@@ -1,8 +1,12 @@
 pub mod error;
 pub use error::KodikError;
-use regex::Regex;
 
-use std::sync::LazyLock;
+use lazy_regex::{self, Lazy};
+use regex_lite::Regex;
+use ua_generator::{
+    fastrand::{self, Rng},
+    ua,
+};
 
 /// Extracts the domain from a URL.
 ///
@@ -10,13 +14,12 @@ use std::sync::LazyLock;
 ///
 /// Returns `KodikError::Regex` if no valid domain is found in the URL.
 pub fn extract_domain(url: &str) -> Result<&str, KodikError> {
-    static DOMAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]")
-            .expect("valid regex syntax")
-    });
+    let domain_re: &Lazy<Regex> = lazy_regex::regex!(
+        r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]"
+    );
 
     log::debug!("Extracting domain...");
-    let domain = DOMAIN_REGEX
+    let domain = domain_re
         .find(url)
         .ok_or(KodikError::Regex("no valid domain found"))?
         .as_str();
@@ -25,12 +28,17 @@ pub fn extract_domain(url: &str) -> Result<&str, KodikError> {
     Ok(domain)
 }
 
-use ua_generator::{fastrand, ua};
-
+#[must_use]
 pub fn random_user_agent() -> &'static str {
-    static AGENTS: LazyLock<&'static Vec<&'static str>> = LazyLock::new(ua::all_static_agents);
     log::trace!("Spoofing user agent...");
-    let ua = AGENTS[fastrand::usize(..AGENTS.len())];
+
+    let agents = ua::all_static_agents();
+    let index = fastrand::usize(..agents.len());
+    let ua = agents
+        .get(index)
+        .copied()
+        .unwrap_or_else(|| ua::spoof_random_agent(&mut Rng::new()));
+
     log::trace!("Spoofed user agent: {ua}");
 
     ua

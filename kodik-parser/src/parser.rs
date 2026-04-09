@@ -2,10 +2,10 @@ use crate::decoder;
 use crate::scraper;
 use crate::{KODIK_STATE, Response};
 use kodik_utils::KodikError;
-use regex::Regex;
+use lazy_regex::Lazy;
+use regex_lite::Regex;
 use reqwest::Client;
 use serde::Serialize;
-use std::sync::LazyLock;
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct VideoInfo<'a> {
@@ -36,10 +36,8 @@ impl<'a> VideoInfo<'a> {
     ///
     /// Returns `KodikError::Regex` if any of the required video fields (type, hash, id) are not found in the response text.
     pub(crate) fn from_response(html: &'_ str) -> Result<VideoInfo<'_>, KodikError> {
-        static FROM_RESPONSE_RE: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"\.(?P<field>type|hash|id) = '(?P<value>.*?)';")
-                .expect("valid regex syntax")
-        });
+        let from_response_re: &Lazy<Regex> =
+            lazy_regex::regex!(r"\.(?P<field>type|hash|id) = '(?P<value>.*?)';");
 
         log::debug!("Extracting video info from response...");
 
@@ -47,7 +45,7 @@ impl<'a> VideoInfo<'a> {
         let mut hash = None;
         let mut id = None;
 
-        for caps in FROM_RESPONSE_RE.captures_iter(html) {
+        for caps in from_response_re.captures_iter(html) {
             match &caps["field"] {
                 "type" => {
                     r#type = Some(
@@ -90,13 +88,11 @@ impl<'a> VideoInfo<'a> {
     ///
     /// Returns `KodikError::Regex` if the video information (type, hash, id) is not found in the URL.
     pub(crate) fn from_url(url: &'_ str) -> Result<VideoInfo<'_>, KodikError> {
-        static FROM_URL_RE: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"/([^/]+)/(\d+)/([a-z0-9]+)").expect("valid regex syntax")
-        });
+        let from_url_re: &Lazy<Regex> = lazy_regex::regex!(r"/([^/]+)/(\d+)/([a-z0-9]+)");
 
         log::debug!("Extracting video info from url...");
 
-        let caps = FROM_URL_RE
+        let caps = from_url_re
             .captures(url)
             .ok_or(KodikError::Regex("videoInfo not found"))?;
 
@@ -127,15 +123,12 @@ impl<'a> VideoInfo<'a> {
 ///
 /// Panics if the regex capture group is not found, which should not happen if the regex is correct.
 pub fn extract_player_url(domain: &str, html: &str) -> Result<String, KodikError> {
-    static PLAYER_PATH_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(
-            r#"<script\s*type="text/javascript"\s*src="/(assets/js/app\.player_single[^"]*)""#,
-        )
-        .expect("valid regex syntax")
-    });
+    let player_path_re: &Lazy<Regex> = lazy_regex::regex!(
+        r#"<script\s*type="text/javascript"\s*src="/(assets/js/app\.player_single[^"]*)""#
+    );
 
     log::debug!("Extracting player url...");
-    let player_path = PLAYER_PATH_REGEX
+    let player_path = player_path_re
         .captures(html)
         .ok_or(KodikError::Regex(
             "there is no player path in response text",
@@ -158,13 +151,11 @@ pub fn extract_player_url(domain: &str, html: &str) -> Result<String, KodikError
 ///
 /// Panics if the regex capture group is not found, which should not happen if the regex is correct.
 pub fn extract_endpoint(html: &str) -> Result<String, KodikError> {
-    static ENDPOINT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r#"\$\.ajax\([^>]+,url:\s*atob\(["\']([\w=]+)["\']\)"#)
-            .expect("valid regex syntax")
-    });
+    let endpoint_re: &Lazy<Regex> =
+        lazy_regex::regex!(r#"\$\.ajax\([^>]+,url:\s*atob\(["\']([\w=]+)["\']\)"#);
 
     log::debug!("Extracting endpoint...");
-    let encoded_endpoint = ENDPOINT_REGEX
+    let encoded_endpoint = endpoint_re
         .captures(html)
         .ok_or(KodikError::Regex(
             "there is no api endpoint in player response",
