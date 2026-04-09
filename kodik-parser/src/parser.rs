@@ -134,7 +134,7 @@ pub fn extract_player_url(domain: &str, html: &str) -> Result<String, KodikError
             "there is no player path in response text",
         ))?
         .get(1)
-        .unwrap()
+        .ok_or(KodikError::Regex("player path capture group not found"))?
         .as_str();
     log::trace!("Extracted player url: {player_path}");
 
@@ -161,7 +161,7 @@ pub fn extract_endpoint(html: &str) -> Result<String, KodikError> {
             "there is no api endpoint in player response",
         ))?
         .get(1)
-        .unwrap()
+        .ok_or(KodikError::Regex("api endpoint capture group not found"))?
         .as_str();
 
     let endpoint = decoder::decode_base64(encoded_endpoint)?;

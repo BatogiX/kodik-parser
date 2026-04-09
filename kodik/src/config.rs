@@ -318,7 +318,11 @@ impl Command {
         let mut ci = 0;
 
         while ci < chars.len() {
-            let c = chars[ci];
+            let c = chars
+                .get(ci)
+                .copied()
+                .ok_or_else(|| "index out of bounds".to_string())?;
+
             let arg = self
                 .args
                 .iter()
@@ -343,7 +347,10 @@ impl Command {
                 }
                 ArgAction::Set => {
                     let val = if ci + 1 < chars.len() {
-                        chars[ci + 1..].iter().collect()
+                        chars
+                            .get(ci + 1..)
+                            .map(|slice| slice.iter().collect())
+                            .ok_or_else(|| "index out of bounds".to_string())?
                     } else {
                         tokens.next().ok_or_else(|| {
                             let v = arg.value_name.unwrap_or("VALUE");
