@@ -16,9 +16,9 @@ lazy-regex = {version = "3.6.0", default-features = false, features = ["lite"]}
 unsafe_code = "forbid"
 
 [workspace.lints.clippy]
-expect_used = "forbid"
-unwrap_used = "forbid"
-indexing_slicing = "forbid"
+expect_used = "deny"
+unwrap_used = "deny"
+indexing_slicing = "deny"
 panic = "forbid"
 
 all = { level = "deny", priority = -1 }

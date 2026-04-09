@@ -37,7 +37,7 @@ pub fn decode_links(kodik_response: &mut Response) -> Result<(), KodikError> {
     Ok(())
 }
 
-pub(crate) fn decode_link(src: &str) -> Result<String, KodikError> {
+pub fn decode_link(src: &str) -> Result<String, KodikError> {
     let shift = KODIK_STATE.shift().clamp(MIN_SHIFT, MAX_SHIFT);
 
     if let Ok(decoded) = try_decode(src, shift) {
@@ -54,7 +54,7 @@ pub(crate) fn decode_link(src: &str) -> Result<String, KodikError> {
     Err(KodikError::LinkCannotBeDecoded(src.to_owned()))
 }
 
-pub(crate) fn try_decode(encoded: &str, shift: u8) -> Result<String, KodikError> {
+pub fn try_decode(encoded: &str, shift: u8) -> Result<String, KodikError> {
     let mut decoded_caesar = caesar_cipher(encoded, shift);
 
     while !decoded_caesar.len().is_multiple_of(4) {
@@ -73,7 +73,7 @@ pub(crate) fn try_decode(encoded: &str, shift: u8) -> Result<String, KodikError>
     decode_result
 }
 
-pub(crate) fn caesar_cipher(text: &str, shift: u8) -> String {
+pub fn caesar_cipher(text: &str, shift: u8) -> String {
     text.chars()
         .map(|c| {
             if c.is_ascii_alphabetic() {

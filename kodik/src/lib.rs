@@ -1,6 +1,6 @@
 use crate::cache::Cache;
 use crate::config::{COMMAND, Config, Quality};
-use kodik_parser::{Client, Response};
+use kodik_parser::{Response, reqwest::Client};
 use log::LevelFilter;
 use std::io::Write;
 use std::io::{self, BufWriter};
@@ -11,6 +11,7 @@ mod config;
 mod logging;
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
 mod tests;
 
 #[must_use]

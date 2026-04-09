@@ -2,6 +2,7 @@
 //! `kodik-parser` for getting direct links to files from Kodik.
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
 mod tests;
 
 pub(crate) mod decoder;
