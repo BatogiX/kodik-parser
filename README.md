@@ -2,14 +2,6 @@
 
 ClI and library written in Rust for getting direct links to files from Kodik.
 
-## Features
-
-- User-Agent substitution,
-
-- Search and caching of the current API endpoint,
-
-- Link decoding.
-
 # Usage
 ## CLI
 ### Example
