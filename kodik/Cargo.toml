@@ -1,16 +1,3 @@
-[package]
-name = "kodik"
-version = "0.1.0"
-edition = "2024"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/BatogiX/kodik-parser"
-homepage = "https://github.com/BatogiX/kodik-parser"
-documentation = "https://docs.rs/kodik-parser"
-keywords = ["rust", "library", "kodik", "parser"]
-categories = ["api-bindings"]
-readme = "README.md"
-description = "A Rust library for getting direct links to files from Kodik."
-
 [dependencies]
 kodik-parser = { path = "../kodik-parser" }
 
@@ -23,3 +10,16 @@ dirs = { version = "6.0.0", default-features = false }
 
 [lints]
 workspace = true
+
+[package]
+name = "kodik"
+version = "0.1.0"
+description = "A Rust library for getting direct links to files from Kodik."
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
