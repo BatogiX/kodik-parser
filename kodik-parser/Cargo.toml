@@ -2,7 +2,7 @@
 default = []
 
 [dependencies]
-kodik-utils = { path = "../kodik-utils" }
+kodik-utils = { version = "0.1.0", path = "../kodik-utils" }
 
 log.workspace = true
 serde = { workspace = true, features = ["rc"] }

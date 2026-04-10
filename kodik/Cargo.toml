@@ -1,5 +1,5 @@
 [dependencies]
-kodik-parser = { path = "../kodik-parser" }
+kodik-parser = { version = "3.0.0", path = "../kodik-parser" }
 
 serde_json.workspace = true
 tokio.workspace = true
