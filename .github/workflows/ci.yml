@@ -43,9 +43,39 @@ jobs:
           sarif_file: rust-clippy-results.sarif
           wait-for-processing: true
 
+  version-check:
+    name: Version Check
+    needs: clippy
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.check.outputs.changed }}
+      version: ${{ steps.check.outputs.version }}
+      tag: ${{ steps.check.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Check if version tag exists
+        id: check
+        run: |
+          VERSION=$(grep '^version' kodik/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          TAG="v$VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          if [ -z "$(git tag --list "$TAG")" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Tag $TAG does not exist — version is new."
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "Tag $TAG already exists — version unchanged."
+          fi
+
   build:
     name: Build (${{ matrix.target }})
-    needs: clippy
+    needs: [clippy, version-check]
+    if: needs.version-check.outputs.changed == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -78,38 +108,15 @@ jobs:
           path: target/${{ matrix.target }}/release/${{ matrix.artifact }}
           if-no-files-found: error
 
-  source:
-    name: Source archive
-    needs: clippy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Create source archive
-        run: git archive --format=tar.gz --prefix=kodik-src/ HEAD -o kodik-src.tar.gz
-
-      - name: Upload source artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: kodik-source
-          path: kodik-src.tar.gz
-          if-no-files-found: error
-
   release:
     name: GitHub Release
-    needs: [build, source]
+    needs: [build, version-check]
+    if: needs.version-check.outputs.changed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-
-      - name: Read version from kodik/Cargo.toml
-        id: version
-        run: |
-          VERSION=$(grep '^version' kodik/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -119,18 +126,18 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: ${{ steps.version.outputs.tag }}
+          tag_name: ${{ needs.version-check.outputs.tag }}
+          name: ${{ needs.version-check.outputs.tag }}
           draft: false
           prerelease: false
           files: |
             artifacts/kodik-x86_64-unknown-linux-gnu/kodik
             artifacts/kodik-x86_64-pc-windows-msvc/kodik.exe
-            artifacts/kodik-source/kodik-src.tar.gz
 
   publish:
     name: Publish to crates.io
-    needs: release
+    needs: [release, version-check]
+    if: needs.version-check.outputs.changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
