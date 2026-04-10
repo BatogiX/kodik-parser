@@ -552,18 +552,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kodik"
-version = "0.1.0"
-dependencies = [
- "dirs",
- "kodik-parser",
- "log",
- "serde",
- "serde_json",
- "tokio",
-]
-
-[[package]]
 name = "kodik-parser"
 version = "3.0.0"
 dependencies = [
@@ -574,6 +562,18 @@ dependencies = [
  "log",
  "regex-lite",
  "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "kodik-rs"
+version = "0.1.0"
+dependencies = [
+ "dirs",
+ "kodik-parser",
+ "log",
  "serde",
  "serde_json",
  "tokio",

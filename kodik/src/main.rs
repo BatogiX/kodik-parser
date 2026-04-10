@@ -1,4 +1,4 @@
-use kodik::run;
+use kodik_rs::run;
 use std::{env, process::ExitCode};
 
 #[tokio::main]
