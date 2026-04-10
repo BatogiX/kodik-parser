@@ -14,7 +14,7 @@ workspace = true
 [package]
 name = "kodik-rs"
 version = "0.1.0"
-description = "A Rust library for getting direct links to files from Kodik."
+description = "CLI written in Rust for getting direct links to files from Kodik"
 readme = "README.md"
 edition.workspace = true
 license.workspace = true

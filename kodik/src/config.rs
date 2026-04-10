@@ -427,15 +427,6 @@ pub enum Quality {
     P720 = 720,
 }
 
-pub struct Config {
-    pub urls: Vec<String>,
-    pub level_filter: LevelFilter,
-    pub lazy: bool,
-    pub help: bool,
-    pub player: Option<String>,
-    pub quality: Quality,
-}
-
 impl FromStr for Quality {
     type Err = String;
 
@@ -451,6 +442,15 @@ For more information, try '{CYAN_HIGH_INTENSITY_BOLD}--help{RESET}'."
             )),
         }
     }
+}
+
+pub struct Config {
+    pub urls: Vec<String>,
+    pub level_filter: LevelFilter,
+    pub lazy: bool,
+    pub help: bool,
+    pub player: Option<String>,
+    pub quality: Quality,
 }
 
 impl Config {

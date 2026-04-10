@@ -1,6 +1,6 @@
 # kodik
 
-ClI written in Rust for getting direct links to files from Kodik.
+CLI written in Rust for getting direct links to files from Kodik.
 
 ## Install
 ```sh
