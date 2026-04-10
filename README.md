@@ -43,7 +43,7 @@ kodik --player mpv https://kodikplayer.com/video/91873/060cab655974d46835b3f4405
 cargo add kodik-parser
 ```
 ```rust
-use kodik_parser::Client;
+use kodik_parser::reqwest::Client;
 
 async fn main() {
     let client = Client::new();

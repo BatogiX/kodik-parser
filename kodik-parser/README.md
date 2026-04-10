@@ -11,7 +11,7 @@ cargo add kodik-parser
 
 ### Example
 ```rust
-use kodik_parser::Client;
+use kodik_parser::reqwest::Client;
 
 async fn main() {
     let client = Client::new();

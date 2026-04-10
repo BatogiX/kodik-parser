@@ -201,7 +201,7 @@ pub fn extract_endpoint(html: &str) -> Result<String, KodikError> {
 ///
 /// # Example
 /// ```no_run
-/// use kodik_parser::Client;
+/// use kodik_parser::reqwest::Client;
 ///
 /// # async fn run() {
 /// let client = Client::new();
