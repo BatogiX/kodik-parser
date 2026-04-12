@@ -2,8 +2,6 @@ use crate::decoder;
 use crate::scraper;
 use crate::{KODIK_STATE, Response};
 use kodik_utils::KodikError;
-use lazy_regex::Lazy;
-use regex_lite::Regex;
 use reqwest::Client;
 use serde::Serialize;
 
@@ -36,8 +34,7 @@ impl<'a> VideoInfo<'a> {
     ///
     /// Returns `KodikError::Regex` if any of the required video fields (type, hash, id) are not found in the response text.
     pub(crate) fn from_response(html: &'_ str) -> Result<VideoInfo<'_>, KodikError> {
-        let from_response_re: &Lazy<Regex> =
-            lazy_regex::regex!(r"\.(?P<field>type|hash|id) = '(?P<value>.*?)';");
+        let from_response_re = lazy_regex::regex!(r"\.(?P<field>type|hash|id) = '(?P<value>.*?)';");
 
         log::debug!("Extracting video info from response...");
 
@@ -88,7 +85,7 @@ impl<'a> VideoInfo<'a> {
     ///
     /// Returns `KodikError::Regex` if the video information (type, hash, id) is not found in the URL.
     pub(crate) fn from_url(url: &'_ str) -> Result<VideoInfo<'_>, KodikError> {
-        let from_url_re: &Lazy<Regex> = lazy_regex::regex!(r"/([^/]+)/(\d+)/([a-z0-9]+)");
+        let from_url_re = lazy_regex::regex!(r"/([^/]+)/(\d+)/([a-z0-9]+)");
 
         log::debug!("Extracting video info from url...");
 
@@ -123,7 +120,7 @@ impl<'a> VideoInfo<'a> {
 ///
 /// Panics if the regex capture group is not found, which should not happen if the regex is correct.
 pub fn extract_player_url(domain: &str, html: &str) -> Result<String, KodikError> {
-    let player_path_re: &Lazy<Regex> = lazy_regex::regex!(
+    let player_path_re = lazy_regex::regex!(
         r#"<script\s*type="text/javascript"\s*src="/(assets/js/app\.player_single[^"]*)""#
     );
 
@@ -151,8 +148,7 @@ pub fn extract_player_url(domain: &str, html: &str) -> Result<String, KodikError
 ///
 /// Panics if the regex capture group is not found, which should not happen if the regex is correct.
 pub fn extract_endpoint(html: &str) -> Result<String, KodikError> {
-    let endpoint_re: &Lazy<Regex> =
-        lazy_regex::regex!(r#"\$\.ajax\([^>]+,url:\s*atob\(["\']([\w=]+)["\']\)"#);
+    let endpoint_re = lazy_regex::regex!(r#"\$\.ajax\([^>]+,url:\s*atob\(["\']([\w=]+)["\']\)"#);
 
     log::debug!("Extracting endpoint...");
     let encoded_endpoint = endpoint_re

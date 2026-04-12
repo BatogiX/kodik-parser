@@ -9,8 +9,7 @@ tokio = { version = "1.50.0", default-features = false, features = ["rt-multi-th
 serde_json = "1.0.149"
 reqwest = { version = "0.13.2", default-features = false, features = ["json","rustls","form"] }
 base64 = "0.22.1"
-regex-lite = "0.1.9"
-lazy-regex = {version = "3.6.0", default-features = false, features = ["lite"]}
+lazy-regex = "3.6.0"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

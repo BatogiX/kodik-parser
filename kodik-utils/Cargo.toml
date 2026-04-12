@@ -3,7 +3,6 @@ reqwest.workspace = true
 base64.workspace = true
 log.workspace = true
 lazy-regex.workspace = true
-regex-lite.workspace = true
 
 thiserror = { version = "2.0.18", default-features = false }
 ua_generator = { version = "0.5.56", default-features = false }
