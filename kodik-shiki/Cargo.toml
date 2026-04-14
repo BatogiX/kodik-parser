@@ -1,4 +1,11 @@
 [dependencies]
+kodik-utils = { version = "0.1.0", path = "../kodik-utils" }
+
+lazy-regex.workspace = true
+serde.workspace = true
+log.workspace = true
+reqwest.workspace = true
+tokio.workspace = true
 
 [lints]
 workspace = true

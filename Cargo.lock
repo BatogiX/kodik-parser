@@ -572,6 +572,7 @@ version = "0.1.0"
 dependencies = [
  "dirs",
  "kodik-parser",
+ "kodik-shiki",
  "log",
  "serde",
  "serde_json",
@@ -581,6 +582,14 @@ dependencies = [
 [[package]]
 name = "kodik-shiki"
 version = "0.1.0"
+dependencies = [
+ "kodik-utils",
+ "lazy-regex",
+ "log",
+ "reqwest",
+ "serde",
+ "tokio",
+]
 
 [[package]]
 name = "kodik-utils"
