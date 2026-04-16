@@ -48,7 +48,9 @@ pub async fn run(args: Vec<String>) -> ExitCode {
 
     let mut idx = 0;
     while idx < config.urls.len() {
-        let url = &config.urls[idx];
+        let Some(url) = config.urls.get(idx) else {
+            break;
+        };
 
         if url.starts_with("https://shiki") {
             match kodik_shiki::run(
@@ -68,7 +70,9 @@ pub async fn run(args: Vec<String>) -> ExitCode {
                         idx += episode_count;
                     }
                     kodik_shiki::VideoResult::Film(film) => {
-                        config.urls[idx] = film;
+                        if let Some(url_ref) = config.urls.get_mut(idx) {
+                            *url_ref = film;
+                        }
                         idx += 1;
                     }
                 },

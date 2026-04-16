@@ -35,7 +35,7 @@ impl Cache {
         match fs::read_to_string(cache_path) {
             Ok(content) => {
                 let mut cache = serde_json::from_str::<Self>(&content).ok()?;
-                cache.path = cache_path.to_owned();
+                cache.path.clone_from(&cache_path.to_owned());
                 Some(cache)
             }
             Err(_) => None,
@@ -74,7 +74,7 @@ impl Cache {
         }
 
         if config.cookie.is_none() && self.cookie.is_some() {
-            config.cookie = self.cookie.clone();
+            config.cookie.clone_from(&self.cookie.clone());
         }
     }
 }
