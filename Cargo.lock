@@ -553,7 +553,7 @@ dependencies = [
 
 [[package]]
 name = "kodik-parser"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "arc-swap",
  "base64",
@@ -568,7 +568,7 @@ dependencies = [
 
 [[package]]
 name = "kodik-rs"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "dirs",
  "kodik-parser",
@@ -581,7 +581,7 @@ dependencies = [
 
 [[package]]
 name = "kodik-shiki"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "kodik-utils",
  "lazy-regex",
@@ -593,7 +593,7 @@ dependencies = [
 
 [[package]]
 name = "kodik-utils"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "base64",
  "lazy-regex",

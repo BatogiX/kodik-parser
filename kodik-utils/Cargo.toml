@@ -12,7 +12,7 @@ workspace = true
 
 [package]
 name = "kodik-utils"
-version = "0.1.0"
+version = "0.1.1"
 description = "A Rust library for getting direct links to files from Kodik."
 edition.workspace = true
 license.workspace = true
