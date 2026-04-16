@@ -553,7 +553,7 @@ dependencies = [
 
 [[package]]
 name = "kodik-parser"
-version = "3.0.1"
+version = "0.1.1"
 dependencies = [
  "arc-swap",
  "base64",

@@ -1,30 +1,28 @@
-[dependencies]
-kodik-parser = { version = "3.0.0", path = "../kodik-parser" }
-kodik-shiki = { version = "0.1.0", path = "../kodik-shiki" }
-
-serde_json.workspace = true
-tokio.workspace = true
-log.workspace = true
-serde.workspace = true
-
-dirs = { version = "6.0.0", default-features = false }
-
-[lints]
-workspace = true
-
 [package]
 name = "kodik-rs"
-version = "0.1.1"
-description = "CLI written in Rust for getting direct links to files from Kodik"
-readme = "README.md"
+version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "CLI tool for getting direct links to files from Kodik"
 repository.workspace = true
 homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
+readme = "README.md"
 
 [[bin]]
 name = "kodik"
 path = "src/main.rs"
+
+[dependencies]
+kodik-parser = { path = "../kodik-parser" }
+kodik-shiki = { path = "../kodik-shiki" }
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+log.workspace = true
+dirs = { version = "6.0", default-features = false }
+
+[lints]
+workspace = true

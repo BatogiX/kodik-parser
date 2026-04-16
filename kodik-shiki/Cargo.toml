@@ -1,6 +1,18 @@
-[dependencies]
-kodik-utils = { version = "0.1.0", path = "../kodik-utils" }
+[package]
+name = "kodik-shiki"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Rust library for Shiki integration with Kodik"
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
 
+[dependencies]
+kodik-utils = { path = "../kodik-utils" }
 lazy-regex.workspace = true
 serde.workspace = true
 log.workspace = true
@@ -9,16 +21,3 @@ tokio.workspace = true
 
 [lints]
 workspace = true
-
-[package]
-name = "kodik-shiki"
-version = "0.1.1"
-description = "A Rust library for getting direct links to files from Kodik."
-edition.workspace = true
-license.workspace = true
-repository.workspace = true
-homepage.workspace = true
-documentation.workspace = true
-keywords.workspace = true
-categories.workspace = true
-readme.workspace = true

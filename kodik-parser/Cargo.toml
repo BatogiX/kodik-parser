@@ -1,33 +1,31 @@
-[features]
-default = []
-
-[dependencies]
-kodik-utils = { version = "0.1.0", path = "../kodik-utils" }
-
-log.workspace = true
-serde = { workspace = true, features = ["rc"] }
-tokio.workspace = true
-reqwest.workspace = true
-base64.workspace = true
-lazy-regex.workspace = true
-
-arc-swap = { version = "1.9.1", default-features = false }
-
-[dev-dependencies]
-serde_json.workspace = true
-
-[lints]
-workspace = true
-
 [package]
 name = "kodik-parser"
-version = "3.0.1"
-description = "A Rust library for getting direct links to files from Kodik."
-readme = "README.md"
+version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Rust library for parsing direct links from Kodik"
 repository.workspace = true
 homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
+readme = "README.md"
+
+[dependencies]
+kodik-utils = { path = "../kodik-utils" }
+serde = { workspace = true, features = ["rc"] }
+log.workspace = true
+tokio.workspace = true
+reqwest.workspace = true
+base64.workspace = true
+lazy-regex.workspace = true
+arc-swap = { version = "1.9", default-features = false }
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[features]
+default = []
+
+[lints]
+workspace = true
