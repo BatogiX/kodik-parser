@@ -6,6 +6,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  KODIK_TOKEN: ${{ secrets.KODIK_TOKEN }}
 
 jobs:
   clippy:
