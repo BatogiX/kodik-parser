@@ -1,4 +1,5 @@
 //! Error types for the Kodik library.
+use reqwest::header;
 use std::string;
 use thiserror::Error;
 
@@ -25,4 +26,12 @@ pub enum KodikError {
     /// Link cannot be decoded error.
     #[error("link cannot be decoded {0}")]
     LinkCannotBeDecoded(String),
+
+    /// Invaliad header value
+    #[error("{0}")]
+    InvalidHeaderValue(#[from] header::InvalidHeaderValue),
+
+    /// Not found error.
+    #[error("{0}")]
+    NotFound(String),
 }

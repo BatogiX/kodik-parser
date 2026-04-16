@@ -21,7 +21,7 @@ pub async fn run(args: Vec<String>) -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    let config = match Config::build(args) {
+    let mut config = match Config::build(args) {
         Ok(config) => {
             logging::setup_logging(config.level_filter);
             config
@@ -38,31 +38,70 @@ pub async fn run(args: Vec<String>) -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    let mut cache = Cache::load();
-    cache.apply();
+    let mut cache_opt = Cache::load();
+    if let Some(cache) = cache_opt.as_ref() {
+        cache.apply(&mut config);
+    }
 
     let client = Client::new();
     let use_lazy = config.lazy || config.player.is_some();
 
+    let mut idx = 0;
+    while idx < config.urls.len() {
+        let url = &config.urls[idx];
+
+        if url.starts_with("https://shiki") {
+            match kodik_shiki::run(
+                &client,
+                url,
+                config.cookie.as_deref(),
+                config.translation_title.as_deref(),
+                config.translation_type.0.as_ref(),
+            )
+            .await
+            {
+                Ok(video_result) => match video_result {
+                    kodik_shiki::VideoResult::Episodes(episodes) => {
+                        let episode_count = episodes.len();
+                        config.urls.splice(idx..=idx, episodes);
+                        idx += episode_count;
+                    }
+                    kodik_shiki::VideoResult::Film(film) => {
+                        config.urls[idx] = film;
+                        idx += 1;
+                    }
+                },
+                Err(e) => {
+                    log::error!("{e}");
+                    return ExitCode::FAILURE;
+                }
+            }
+        } else {
+            idx += 1;
+        }
+    }
+
     let exit_code = if use_lazy {
-        run_lazy(config, &client).await
+        run_lazy(&client, config.urls, config.quality, config.player).await
     } else {
-        run_parallel(config, &client).await
+        run_parallel(&client, config.urls, config.quality).await
     };
 
-    if cache.is_changed() {
-        log::debug!("Updating cache...");
-        cache.update();
+    if let Some(cache) = cache_opt.as_mut()
+        && cache.is_changed(config.cookie.as_deref())
+    {
+        log::warn!("Updating cache... in {}", cache.path.display());
+        cache.update(config.cookie.as_deref());
         cache.save();
     }
 
     exit_code
 }
 
-async fn run_parallel(config: Config, client: &Client) -> ExitCode {
+async fn run_parallel(client: &Client, urls: Vec<String>, quality: Quality) -> ExitCode {
     let results = {
         let mut set = tokio::task::JoinSet::new();
-        for (idx, url) in config.urls.into_iter().enumerate() {
+        for (idx, url) in urls.into_iter().enumerate() {
             let client = client.clone();
             set.spawn(async move {
                 let result = kodik_parser::parse(&client, &url).await;
@@ -87,7 +126,7 @@ async fn run_parallel(config: Config, client: &Client) -> ExitCode {
             }
         };
 
-        let Some(link) = get_link(&kodik_response, config.quality) else {
+        let Some(link) = get_link(&kodik_response, quality) else {
             log::error!("no playable links found for this video");
             return ExitCode::FAILURE;
         };
@@ -106,8 +145,13 @@ async fn run_parallel(config: Config, client: &Client) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-async fn run_lazy(config: Config, client: &Client) -> ExitCode {
-    for url in config.urls {
+async fn run_lazy(
+    client: &Client,
+    urls: Vec<String>,
+    quality: Quality,
+    player: Option<String>,
+) -> ExitCode {
+    for url in urls {
         let kodik_response = match kodik_parser::parse(client, &url).await {
             Ok(r) => r,
             Err(e) => {
@@ -116,12 +160,12 @@ async fn run_lazy(config: Config, client: &Client) -> ExitCode {
             }
         };
 
-        let Some(link) = get_link(&kodik_response, config.quality) else {
+        let Some(link) = get_link(&kodik_response, quality) else {
             log::error!("no playable links found for this video");
             return ExitCode::FAILURE;
         };
 
-        if let Some(player) = &config.player {
+        if let Some(player) = &player {
             if let Err(e) = spawn_player(player, link) {
                 log::error!("{e}");
                 return ExitCode::FAILURE;

@@ -76,34 +76,34 @@ pub struct SearchResponse {
     results: Vec<SearchResult>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct SearchResult {
-    link: String,
-    translation: Translation,
-    seasons: Option<BTreeMap<usize, Season>>,
+    pub link: String,
+    pub translation: Translation,
+    pub seasons: Option<BTreeMap<usize, Season>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Translation {
-    title: String,
-    r#type: TranslationType,
+    pub title: String,
+    pub r#type: TranslationType,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq, Eq, Clone)]
 #[serde(rename_all = "lowercase")]
-enum TranslationType {
+pub enum TranslationType {
     Voice,
     Subtitles,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Season {
     episodes: BTreeMap<usize, String>,
 }
 
 #[derive(Debug)]
 pub enum VideoResult {
-    Series(Vec<String>),
+    Episodes(Vec<String>),
     Film(String),
 }
 
@@ -117,35 +117,80 @@ pub async fn get_kodik_videos(client: &Client, id: &str) -> Result<SearchRespons
     get_json(client, &url, headers).await
 }
 
+pub fn find_search_result(
+    results: Vec<SearchResult>,
+    translation_title: Option<&str>,
+    translation_type: Option<&TranslationType>,
+) -> Result<SearchResult, KodikError> {
+    if let Some(title) = translation_title {
+        results
+            .into_iter()
+            .find(|r| r.translation.title == title)
+            .ok_or(KodikError::NotFound(format!(
+                "no video source with title '{title}'"
+            )))
+    } else if let Some(r#type) = translation_type {
+        results
+            .into_iter()
+            .find(|r| r.translation.r#type == *r#type)
+            .ok_or(KodikError::NotFound(
+                "no video source with matching type".to_string(),
+            ))
+    } else {
+        results
+            .into_iter()
+            .next()
+            .ok_or(KodikError::NotFound("no video sources found".to_string()))
+    }
+}
+
+/// Retrieves video results for an anime from Kodik.
+///
+/// # Errors
+///
+/// Returns `KodikError` if:
+/// - The domain cannot be extracted from the URL
+/// - The anime ID cannot be extracted from the URL
+/// - The Kodik API request fails
+/// - No matching video source is found
 pub async fn run(
     client: &Client,
     url: &str,
-    cookie: Option<String>,
+    cookie: Option<&str>,
+    translation_title: Option<&str>,
+    translation_type: Option<&TranslationType>,
 ) -> Result<VideoResult, KodikError> {
     let domain = extract_domain(url)?;
     let id = extract_id(url)?;
 
     let search_response = get_kodik_videos(client, id).await?;
 
-    if let Some(seasons) = &search_response.results[0].seasons {
+    let search_result =
+        find_search_result(search_response.results, translation_title, translation_type)?;
+
+    if let Some(seasons) = search_result.seasons {
         let last_episode = if let Some(cookie) = cookie
-            && let Ok(Some(user_rate)) = get_user_rate(client, domain, id, &cookie).await
+            && let Ok(Some(user_rate)) = get_user_rate(client, domain, id, cookie).await
         {
             user_rate.episodes
         } else {
             0
         };
 
-        let season = seasons.values().next().unwrap();
-        Ok(VideoResult::Series(
-            season
-                .episodes
-                .values()
-                .skip(last_episode)
-                .cloned()
-                .collect(),
-        ))
+        let (_, season) = seasons
+            .into_iter()
+            .next()
+            .ok_or(KodikError::NotFound("no season found".to_string()))?;
+
+        let episodes = season
+            .episodes
+            .into_iter()
+            .skip(last_episode)
+            .map(|(_, ep)| ep)
+            .collect();
+
+        Ok(VideoResult::Episodes(episodes))
     } else {
-        Ok(VideoResult::Film(search_response.results[0].link.clone()))
+        Ok(VideoResult::Film(search_result.link))
     }
 }

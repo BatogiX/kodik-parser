@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fmt::Write, str::FromStr, sync::LazyLock};
 
+use kodik_shiki::TranslationType;
 use log::LevelFilter;
 
 use crate::logging::{
@@ -297,7 +298,7 @@ impl Command {
                     let v = arg.value_name.unwrap_or("VALUE");
                     format!(
                         "a value is required for \
-                         '{YELLOW_BOLD}--{long} <{v}>{RESET}' but none was supplied",
+                         '{YELLOW_BOLD}--{long} <{v}>{RESET}' but was not supplied",
                     )
                 })?;
                 values.insert(arg.id, MatchValue::Single(val));
@@ -416,6 +417,35 @@ pub static COMMAND: LazyLock<Command> = LazyLock::new(|| {
                 .help("Specify video quality [possible values: 360, 480, 720] (default: 720)")
                 .action(ArgAction::Set),
         )
+        .arg(
+            Arg::new("episode")
+                .short('e')
+                .long("episode")
+                .value_name("EPISODE")
+                .help("Specify from which episode start with")
+                .action(ArgAction::Set),
+        )
+        .arg(
+            Arg::new("translation_title")
+                .long("title")
+                .value_name("TITLE")
+                .help("Specify translation title")
+                .action(ArgAction::Set),
+        )
+        .arg(
+            Arg::new("translation_type")
+                .long("type")
+                .value_name("TYPE")
+                .help("Specify translation type [possible values: voice, subtitles]")
+                .action(ArgAction::Set),
+        )
+        .arg(
+            Arg::new("cookie")
+                .long("cookie")
+                .value_name("COOKIE")
+                .help("Specify cookie to get your user rate")
+                .action(ArgAction::Set),
+        )
         .arg(Arg::new("help").short('h').long("help").help("Print help"))
 });
 
@@ -444,6 +474,24 @@ For more information, try '{CYAN_HIGH_INTENSITY_BOLD}--help{RESET}'."
     }
 }
 
+pub struct TranslationTypeArg(pub Option<TranslationType>);
+
+impl FromStr for TranslationTypeArg {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "voice" => Ok(Self(Some(TranslationType::Voice))),
+            "subtitles" => Ok(Self(Some(TranslationType::Subtitles))),
+            _ => Err(format!(
+                "invalid value '{YELLOW_BOLD}{s}{RESET}' for '{CYAN_HIGH_INTENSITY_BOLD}--type <TYPE>{RESET}'
+  [possible values: {CYAN_HIGH_INTENSITY_BOLD}voice{RESET}, {CYAN_HIGH_INTENSITY_BOLD}subtitles{RESET}]\n
+For more information, try '{CYAN_HIGH_INTENSITY_BOLD}--help{RESET}'."
+            )),
+        }
+    }
+}
+
 pub struct Config {
     pub urls: Vec<String>,
     pub level_filter: LevelFilter,
@@ -451,6 +499,10 @@ pub struct Config {
     pub help: bool,
     pub player: Option<String>,
     pub quality: Quality,
+    pub translation_title: Option<String>,
+    pub translation_type: TranslationTypeArg,
+    pub episode: Option<usize>,
+    pub cookie: Option<String>,
 }
 
 impl Config {
@@ -468,9 +520,24 @@ impl Config {
         };
 
         let quality = match m.get_one("quality") {
-            Some(s) => s.parse::<Quality>()?,
+            Some(s) => s.parse()?,
             None => Quality::default(),
         };
+
+        let translation_type = match m.get_one("translation_type") {
+            Some(s) => s.parse::<TranslationTypeArg>()?,
+            None => TranslationTypeArg(None),
+        };
+
+        let episode = m.get_one("episode").map(|src| {
+            usize::from_str(src).map_err(|_| {
+                format!(
+                "invalid value '{YELLOW_BOLD}{src}{RESET}' for '{CYAN_HIGH_INTENSITY_BOLD}-e{RESET}, {CYAN_HIGH_INTENSITY_BOLD}--episode <EPISODE>{RESET}'\n
+For more information, try '{CYAN_HIGH_INTENSITY_BOLD}--help{RESET}'."
+                )
+            })
+        })
+        .transpose()?;
 
         Ok(Self {
             urls: m.get_many("url").to_vec(),
@@ -479,6 +546,10 @@ impl Config {
             help: m.get_flag("help"),
             player: m.get_one("player").map(str::to_owned),
             quality,
+            translation_title: m.get_one("translation_title").map(str::to_owned),
+            translation_type,
+            episode,
+            cookie: m.get_one("cookie").map(str::to_owned),
         })
     }
 }

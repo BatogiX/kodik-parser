@@ -2,5 +2,7 @@
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
 mod tests;
 
-pub(crate) mod parser;
-pub(crate) mod scraper;
+mod parser;
+mod scraper;
+pub use scraper::run;
+pub use scraper::{TranslationType, VideoResult};
