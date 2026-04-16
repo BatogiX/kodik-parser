@@ -57,6 +57,7 @@ pub async fn run(args: Vec<String>) -> ExitCode {
                 config.cookie.as_deref(),
                 config.translation_title.as_deref(),
                 config.translation_type.0.as_ref(),
+                config.episode,
             )
             .await
             {

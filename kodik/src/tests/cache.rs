@@ -10,7 +10,7 @@ use crate::{
 fn load_test() -> Cache {
     let mut cache = Cache::load().unwrap();
 
-    if cache.endpoint.unwrap().is_empty() || cache.shift.unwrap() == 0 {
+    if cache.endpoint.as_ref().unwrap().is_empty() || cache.shift.unwrap() == 0 {
         let cache_path = CACHE_PATH.as_ref().unwrap();
         cache = Cache {
             shift: Some(13),

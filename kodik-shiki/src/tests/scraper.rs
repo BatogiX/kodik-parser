@@ -43,7 +43,10 @@ async fn get_kodik_videos_film_test() {
 async fn run_season_test() {
     let client = Client::new();
     let url = "https://shikimori.io/animes/467-koukaku-kidoutai-stand-alone-complex";
-    println!("{:#?}", run(&client, url, None, None, None).await.unwrap());
+    println!(
+        "{:#?}",
+        run(&client, url, None, None, None, None).await.unwrap()
+    );
 }
 
 #[tokio::test]
@@ -51,7 +54,10 @@ async fn run_film_test() {
     let client = Client::new();
     let url = "https://shikimori.io/animes/43-koukaku-kidoutai";
 
-    println!("{:#?}", run(&client, url, None, None, None).await.unwrap());
+    println!(
+        "{:#?}",
+        run(&client, url, None, None, None, None).await.unwrap()
+    );
 }
 
 #[test]

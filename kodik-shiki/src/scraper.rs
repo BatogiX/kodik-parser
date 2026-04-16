@@ -49,7 +49,6 @@ fn build_headers(host: &str, with_cookie: Option<&str>) -> Result<HeaderMap, Kod
 
 #[derive(Debug, Deserialize)]
 pub struct Response {
-    id: usize,
     user_rate: Option<UserRate>,
 }
 
@@ -159,6 +158,7 @@ pub async fn run(
     cookie: Option<&str>,
     translation_title: Option<&str>,
     translation_type: Option<&TranslationType>,
+    episode: Option<usize>,
 ) -> Result<VideoResult, KodikError> {
     let domain = extract_domain(url)?;
     let id = extract_id(url)?;
@@ -169,7 +169,9 @@ pub async fn run(
         find_search_result(search_response.results, translation_title, translation_type)?;
 
     if let Some(seasons) = search_result.seasons {
-        let last_episode = if let Some(cookie) = cookie
+        let last_episode = if let Some(episode) = episode {
+            episode
+        } else if let Some(cookie) = cookie
             && let Ok(Some(user_rate)) = get_user_rate(client, domain, id, cookie).await
         {
             user_rate.episodes
