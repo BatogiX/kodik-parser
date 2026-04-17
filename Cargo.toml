@@ -42,4 +42,4 @@ documentation = "https://docs.rs/kodik-parser"
 keywords      = ["rust", "library", "kodik", "parser"]
 categories    = ["api-bindings"]
 readme        = "README.md"
-version = "0.1.1"
+version = "0.1.2"
