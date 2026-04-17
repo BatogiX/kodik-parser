@@ -34,12 +34,11 @@ opt-level = 3
 panic = "abort"
 
 [workspace.package]
-edition       = "2024"
-license       = "MIT OR Apache-2.0"
-repository    = "https://github.com/BatogiX/kodik"
-homepage      = "https://github.com/BatogiX/kodik"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/BatogiX/kodik"
+homepage = "https://github.com/BatogiX/kodik"
 documentation = "https://docs.rs/kodik-parser"
-keywords      = ["rust", "library", "kodik", "parser"]
-categories    = ["api-bindings"]
-readme        = "README.md"
-version = "0.1.2"
+keywords = ["rust", "library", "kodik", "parser"]
+categories = ["api-bindings"]
+readme = "README.md"

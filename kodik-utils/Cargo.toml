@@ -1,6 +1,6 @@
 [package]
 name = "kodik-utils"
-version.workspace = true
+version = "0.1.1"
 edition.workspace = true
 license.workspace = true
 description = "Rust utilities library for Kodik"

@@ -1,6 +1,6 @@
 [package]
 name = "kodik-rs"
-version.workspace = true
+version = "0.1.2"
 edition.workspace = true
 license.workspace = true
 description = "CLI tool for getting direct links to files from Kodik"
@@ -16,8 +16,8 @@ name = "kodik"
 path = "src/main.rs"
 
 [dependencies]
-kodik-parser = { path = "../kodik-parser" }
-kodik-shiki = { path = "../kodik-shiki" }
+kodik-parser = { version = "3", path = "../kodik-parser" }
+kodik-shiki = { version = "0.1", path = "../kodik-shiki" }
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
