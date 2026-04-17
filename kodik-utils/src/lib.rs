@@ -6,6 +6,6 @@ pub mod error;
 pub mod re;
 pub mod ua;
 
-pub use error::KodikError;
+pub use error::Error;
 pub use re::extract_domain;
 pub use ua::random_user_agent;

@@ -1,5 +1,5 @@
 use crate::parser::VideoInfo;
-use kodik_utils::KodikError;
+use kodik_utils::Error;
 use reqwest::{
     Client,
     header::{ACCEPT, HeaderName, ORIGIN, REFERER, USER_AGENT},
@@ -36,7 +36,7 @@ pub struct Link {
     pub r#type: String,
 }
 
-pub async fn get(client: &Client, url: &str) -> Result<String, KodikError> {
+pub async fn get(client: &Client, url: &str) -> Result<String, Error> {
     let agent = kodik_utils::random_user_agent();
 
     log::info!("GET to {url}...");
@@ -59,7 +59,7 @@ pub async fn post(
     domain: &str,
     endpoint: &str,
     video_info: &VideoInfo<'_>,
-) -> Result<Response, KodikError> {
+) -> Result<Response, Error> {
     let user_agent = kodik_utils::random_user_agent();
     let url = format!("https://{domain}{endpoint}");
 

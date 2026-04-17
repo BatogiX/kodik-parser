@@ -1,12 +1,12 @@
 //! Error types for the Kodik library.
 use reqwest::header;
 use std::string;
-use thiserror::Error;
+use thiserror::Error as ThisError;
 
 /// Errors from kodik.
-#[derive(Error, Debug)]
+#[derive(ThisError, Debug)]
 #[non_exhaustive]
-pub enum KodikError {
+pub enum Error {
     /// Reqwest HTTP client error.
     #[error("{0}")]
     Reqwest(#[from] reqwest::Error),
@@ -21,7 +21,7 @@ pub enum KodikError {
 
     /// Regex matching error.
     #[error("{0}")]
-    Regex(&'static str),
+    RegexMatch(String),
 
     /// Link cannot be decoded error.
     #[error("link cannot be decoded {0}")]
@@ -34,4 +34,7 @@ pub enum KodikError {
     /// Not found error.
     #[error("{0}")]
     NotFound(String),
+
+    #[error("{0}")]
+    Regex(#[from] lazy_regex::regex::Error),
 }

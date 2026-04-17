@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, fmt::Debug};
 
-use kodik_utils::{KodikError, extract_domain};
+use kodik_utils::Error;
+use lazy_regex::{Regex, regex};
 use reqwest::{
     Client,
     header::{ACCEPT, COOKIE, HOST, HeaderMap, HeaderValue, USER_AGENT},
@@ -8,44 +9,6 @@ use reqwest::{
 use serde::{Deserialize, de::DeserializeOwned};
 
 use crate::parser::extract_id;
-
-pub async fn get_json<T: DeserializeOwned + Debug>(
-    client: &Client,
-    url: &str,
-    headers: HeaderMap,
-) -> Result<T, KodikError> {
-    let agent = kodik_utils::random_user_agent();
-
-    log::debug!("GET to {url}...");
-
-    let resp = client
-        .get(url)
-        .header(USER_AGENT, agent)
-        .headers(headers)
-        .send()
-        .await?
-        .json()
-        .await?;
-
-    log::trace!("Fetched to {url}, response: {resp:#?}");
-
-    Ok(resp)
-}
-
-fn build_headers(host: &str, with_cookie: Option<&str>) -> Result<HeaderMap, KodikError> {
-    let mut headers = HeaderMap::with_capacity(if with_cookie.is_some() { 3 } else { 2 });
-
-    headers.insert(HOST, HeaderValue::from_str(host)?);
-    headers.insert(ACCEPT, HeaderValue::from_str("application/json")?);
-
-    if let Some(cookie) = with_cookie {
-        let mut cookie_header = HeaderValue::from_str(cookie)?;
-        cookie_header.set_sensitive(true);
-        headers.insert(COOKIE, cookie_header);
-    }
-
-    Ok(headers)
-}
 
 #[derive(Debug, Deserialize)]
 pub struct Response {
@@ -55,19 +18,6 @@ pub struct Response {
 #[derive(Debug, Deserialize)]
 pub struct UserRate {
     episodes: usize,
-}
-
-pub async fn get_user_rate(
-    client: &Client,
-    domain: &str,
-    id: &str,
-    cookie: &str,
-) -> Result<Option<UserRate>, KodikError> {
-    let url = format!("https://{domain}/api/animes/{id}");
-    let headers = build_headers(domain, Some(cookie))?;
-
-    let resp: Response = get_json(client, &url, headers).await?;
-    Ok(resp.user_rate)
 }
 
 #[derive(Debug, Deserialize)]
@@ -106,7 +56,107 @@ pub enum VideoResult {
     Film(String),
 }
 
-pub async fn get_kodik_videos(client: &Client, id: &str) -> Result<SearchResponse, KodikError> {
+pub async fn get_user_rate(
+    client: &Client,
+    domain: &str,
+    id: &str,
+    cookie: &str,
+) -> Result<Option<UserRate>, Error> {
+    let url = format!("https://{domain}/api/animes/{id}");
+    let headers = build_headers(domain, Some(cookie))?;
+
+    let resp: Response = get_json(client, &url, headers).await?;
+    Ok(resp.user_rate)
+}
+
+pub fn find_search_result(
+    mut results: Vec<SearchResult>,
+    translation_title: Option<&str>,
+    translation_type: Option<&TranslationType>,
+) -> Result<SearchResult, Error> {
+    if let Some(title) = translation_title {
+        let title_re = Regex::new(&format!(r"(?i).*{}.*", regex::escape(title)))?;
+
+        let found_idx = results
+            .iter()
+            .position(|r| title_re.is_match(&r.translation.title));
+
+        match found_idx {
+            Some(idx) => {
+                let result = results.remove(idx);
+                log::info!("Found translation title '{}'", result.translation.title);
+                Ok(result)
+            }
+            None => translation_type.map_or_else(
+                || {
+                    Err(Error::NotFound(format!(
+                        "no video source with title '{title}'"
+                    )))
+                },
+                |r#type| {
+                    results
+                        .into_iter()
+                        .find(|r| r.translation.r#type == *r#type)
+                        .ok_or(Error::NotFound(
+                            "no video source with matching type".to_string(),
+                        ))
+                },
+            ),
+        }
+    } else if let Some(search_type) = translation_type {
+        results
+            .into_iter()
+            .find(|r| r.translation.r#type == *search_type)
+            .ok_or(Error::NotFound(
+                "no video source with matching type".to_string(),
+            ))
+    } else {
+        results
+            .into_iter()
+            .next()
+            .ok_or(Error::NotFound("no video sources found".to_string()))
+    }
+}
+
+pub async fn get_json<T: DeserializeOwned + Debug>(
+    client: &Client,
+    url: &str,
+    headers: HeaderMap,
+) -> Result<T, Error> {
+    let agent = kodik_utils::random_user_agent();
+
+    log::info!("GET to {url}...");
+
+    let resp = client
+        .get(url)
+        .header(USER_AGENT, agent)
+        .headers(headers)
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    log::trace!("Fetched to {url}, response: {resp:#?}");
+
+    Ok(resp)
+}
+
+fn build_headers(host: &str, with_cookie: Option<&str>) -> Result<HeaderMap, Error> {
+    let mut headers = HeaderMap::with_capacity(if with_cookie.is_some() { 3 } else { 2 });
+
+    headers.insert(HOST, HeaderValue::from_str(host)?);
+    headers.insert(ACCEPT, HeaderValue::from_str("application/json")?);
+
+    if let Some(cookie) = with_cookie {
+        let mut cookie_header = HeaderValue::from_str(cookie)?;
+        cookie_header.set_sensitive(true);
+        headers.insert(COOKIE, cookie_header);
+    }
+
+    Ok(headers)
+}
+
+pub async fn get_kodik_videos(client: &Client, id: &str) -> Result<SearchResponse, Error> {
     let token = env!("KODIK_TOKEN");
     let url = format!(
         "https://kodik-api.com/search?token={token}&shikimori_id={id}&with_seasons=true&with_episodes=true"
@@ -114,33 +164,6 @@ pub async fn get_kodik_videos(client: &Client, id: &str) -> Result<SearchRespons
 
     let headers = build_headers("kodik-api.com", None)?;
     get_json(client, &url, headers).await
-}
-
-pub fn find_search_result(
-    results: Vec<SearchResult>,
-    translation_title: Option<&str>,
-    translation_type: Option<&TranslationType>,
-) -> Result<SearchResult, KodikError> {
-    if let Some(title) = translation_title {
-        results
-            .into_iter()
-            .find(|r| r.translation.title == title)
-            .ok_or(KodikError::NotFound(format!(
-                "no video source with title '{title}'"
-            )))
-    } else if let Some(r#type) = translation_type {
-        results
-            .into_iter()
-            .find(|r| r.translation.r#type == *r#type)
-            .ok_or(KodikError::NotFound(
-                "no video source with matching type".to_string(),
-            ))
-    } else {
-        results
-            .into_iter()
-            .next()
-            .ok_or(KodikError::NotFound("no video sources found".to_string()))
-    }
 }
 
 /// Retrieves video results for an anime from Kodik.
@@ -159,8 +182,8 @@ pub async fn run(
     translation_title: Option<&str>,
     translation_type: Option<&TranslationType>,
     episode: Option<usize>,
-) -> Result<VideoResult, KodikError> {
-    let domain = extract_domain(url)?;
+) -> Result<VideoResult, Error> {
+    let domain = kodik_utils::extract_domain(url)?;
     let id = extract_id(url)?;
 
     let search_response = get_kodik_videos(client, id).await?;
@@ -182,7 +205,7 @@ pub async fn run(
         let (_, season) = seasons
             .into_iter()
             .next()
-            .ok_or(KodikError::NotFound("no season found".to_string()))?;
+            .ok_or(Error::NotFound("no season found".to_string()))?;
 
         let episodes = season
             .episodes
