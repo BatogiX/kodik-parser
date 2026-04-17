@@ -204,7 +204,7 @@ pub async fn run(
 
         let (_, season) = seasons
             .into_iter()
-            .next()
+            .next_back()
             .ok_or(Error::NotFound("no season found".to_string()))?;
 
         let episodes = season

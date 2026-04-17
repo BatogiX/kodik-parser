@@ -1,6 +1,6 @@
 [package]
 name = "kodik-shiki"
-version = "0.1.1"
+version = "0.1.2"
 edition.workspace = true
 license.workspace = true
 description = "Rust library for Shiki integration with Kodik"
