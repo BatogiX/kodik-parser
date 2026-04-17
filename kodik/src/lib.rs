@@ -115,7 +115,7 @@ async fn run_parallel(client: &Client, urls: Vec<String>, quality: Quality) -> E
         }
 
         let mut results = set.join_all().await;
-        results.sort_by(|a, b| a.0.cmp(&b.0));
+        results.sort_by_key(|a| a.0);
         results
     };
 
