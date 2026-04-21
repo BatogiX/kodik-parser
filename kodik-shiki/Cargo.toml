@@ -1,6 +1,6 @@
 [package]
 name = "kodik-shiki"
-version = "0.1.2"
+version = "0.1.3"
 edition.workspace = true
 license.workspace = true
 description = "Rust library for Shiki integration with Kodik"
@@ -18,6 +18,8 @@ serde.workspace = true
 log.workspace = true
 reqwest.workspace = true
 tokio.workspace = true
+serde-saphyr.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

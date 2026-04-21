@@ -1,5 +1,3 @@
-use lazy_regex;
-
 use crate::Error;
 
 /// Extracts the domain from a URL.

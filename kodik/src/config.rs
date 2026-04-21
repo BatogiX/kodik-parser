@@ -446,6 +446,16 @@ pub static COMMAND: LazyLock<Command> = LazyLock::new(|| {
                 .help("Specify cookie to get your user rate")
                 .action(ArgAction::Set),
         )
+        .arg(
+            Arg::new("related")
+                .long("related")
+                .help("Expand a media database URL into all related URLs"),
+        )
+        .arg(
+            Arg::new("essential")
+                .long("essential")
+                .help("Filter `--related` for essential entries only"),
+        )
         .arg(Arg::new("help").short('h').long("help").help("Print help"))
 });
 
@@ -503,6 +513,8 @@ pub struct Config {
     pub translation_type: TranslationTypeArg,
     pub episode: Option<usize>,
     pub cookie: Option<String>,
+    pub related: bool,
+    pub essential: bool,
 }
 
 impl Config {
@@ -550,6 +562,8 @@ For more information, try '{CYAN_HIGH_INTENSITY_BOLD}--help{RESET}'."
             translation_type,
             episode,
             cookie: m.get_one("cookie").map(str::to_owned),
+            related: m.get_flag("related"),
+            essential: m.get_flag("essential"),
         })
     }
 }

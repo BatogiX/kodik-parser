@@ -3,25 +3,21 @@ use std::env;
 use reqwest::Client;
 
 use crate::scraper::{
-    SearchResult, Translation, TranslationType, find_search_result, get_kodik_videos,
-    get_user_rate, run,
+    fetch_animes_by_franchise, fetch_franchise, get_kodik_videos, get_not_anime_ids, run,
 };
 
-#[tokio::test]
-async fn get_user_rate_test() {
-    let client = Client::new();
-    let domain = "shikimori.io";
-    let id = "43";
-    let cookie = env::var("_kawai_session").unwrap();
+// #[tokio::test]
+// async fn get_response_test() {
+//     let client = Client::new();
+//     let domain = "shikimori.io";
+//     let id = "43";
+//     let cookie = env::var("_kawai_session").unwrap();
 
-    println!(
-        "{:#?}",
-        get_user_rate(&client, domain, id, &cookie)
-            .await
-            .unwrap()
-            .unwrap()
-    );
-}
+//     println!(
+//         "{:#?}",
+//         get_response(&client, domain, id, &cookie).await.unwrap()
+//     );
+// }
 
 #[tokio::test]
 async fn get_kodik_videos_season_test() {
@@ -60,44 +56,112 @@ async fn run_film_test() {
     );
 }
 
-#[test]
-fn find_search_result_test() {
-    let results: [SearchResult; 2] = [
-        SearchResult {
-            link: "//kodikplayer.com/video/54982/9c161034342aff5e14dacd613f21c209/720p".to_owned(),
-            translation: Translation {
-                title: "Reanimedia".to_owned(),
-                r#type: TranslationType::Voice,
-            },
-            seasons: None,
-        },
-        SearchResult {
-            link: "//kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p".to_owned(),
-            translation: Translation {
-                title: "Subtitles".to_owned(),
-                r#type: TranslationType::Subtitles,
-            },
-            seasons: None,
-        },
-    ];
+// #[test]
+// fn find_search_result_test() {
+//     let results: [SearchResult; 2] = [
+//         SearchResult {
+//             link: "//kodikplayer.com/video/54982/9c161034342aff5e14dacd613f21c209/720p".to_owned(),
+//             translation: Translation {
+//                 title: "Reanimedia".to_owned(),
+//                 r#type: TranslationType::Voice,
+//             },
+//             seasons: None,
+//         },
+//         SearchResult {
+//             link: "//kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p".to_owned(),
+//             translation: Translation {
+//                 title: "Subtitles".to_owned(),
+//                 r#type: TranslationType::Subtitles,
+//             },
+//             seasons: None,
+//         },
+//     ];
 
-    let test_cases = [
-        (
-            Some("Reanimedia"),
-            Some(TranslationType::Subtitles),
-            "Reanimedia",
-        ),
-        (None, None, "Reanimedia"),
-        (None, Some(TranslationType::Subtitles), "Subtitles"),
-    ];
+//     let test_cases = [
+//         (
+//             Some("Reanimedia"),
+//             Some(TranslationType::Subtitles),
+//             "Reanimedia",
+//         ),
+//         (None, None, "Reanimedia"),
+//         (None, Some(TranslationType::Subtitles), "Subtitles"),
+//     ];
 
-    for (title, r#type, expected_title) in test_cases {
-        assert_eq!(
-            expected_title.to_owned(),
-            find_search_result(results.to_vec(), title, r#type.as_ref())
-                .unwrap()
-                .translation
-                .title
-        );
-    }
+//     for (title, r#type, expected_title) in test_cases {
+//         assert_eq!(
+//             expected_title.to_owned(),
+//             find_search_result(results.to_vec(), title, r#type.as_ref())
+//                 .unwrap()
+//                 .translation
+//                 .title
+//         );
+//     }
+// }
+
+// #[tokio::test]
+// async fn get_franchise_test() {
+//     let client = Client::new();
+//     let url = "https://shikimori.io/animes/38524";
+//     let to_filter = false;
+
+//     println!(
+//         "{:#?}",
+//         get_franchise(&client, url, to_filter).await.unwrap()
+//     );
+// }
+
+#[tokio::test]
+async fn get_not_anime_ids_test() {
+    let client = Client::new();
+    let neko_id = "shingeki_no_kyojin";
+    println!("{:#?}", get_not_anime_ids(&client, neko_id).await.unwrap());
+}
+
+// #[tokio::test]
+// async fn get_franchise_with_filter_test() {
+//     let client = Client::new();
+//     let url = "https://shikimori.io/animes/38524";
+//     let to_filter = true;
+
+//     println!(
+//         "{:#?}",
+//         get_franchise(&client, url, to_filter).await.unwrap()
+//     );
+// }
+
+#[tokio::test]
+async fn get_franchise_test() {
+    let client = Client::new();
+    let url = "https://shikimori.io/api/graphql";
+    let id = "16498";
+
+    assert_eq!(
+        "shingeki_no_kyojin",
+        fetch_franchise(&client, url, id).await.unwrap().unwrap()
+    );
+}
+
+#[tokio::test]
+async fn get_franchise_none_test() {
+    let client = Client::new();
+    let url = "https://shikimori.io/api/graphql";
+    let id = "164";
+
+    assert!(fetch_franchise(&client, url, id).await.unwrap().is_none());
+}
+
+#[tokio::test]
+async fn fetch_franchise_by_title_teat() {
+    let client = Client::new();
+    let url = "https://shikimori.io/api/graphql";
+    let franchise = "shingeki_no_kyojin";
+    let page = 1;
+    let with_cookie = env::var("_kawai_session").unwrap();
+
+    println!(
+        "{:#?}",
+        fetch_animes_by_franchise(&client, url, franchise, page, Some(with_cookie.as_str()))
+            .await
+            .unwrap()
+    );
 }

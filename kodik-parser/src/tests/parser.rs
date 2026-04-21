@@ -16,7 +16,7 @@ fn v_info_from_response_test() {
    vInfo.id = '91873';
 </script>";
 
-    let video_info = VideoInfo::from_response(html).unwrap();
+    let video_info = VideoInfo::from_body(html).unwrap();
 
     assert_eq!(expected_video_info, video_info);
 }

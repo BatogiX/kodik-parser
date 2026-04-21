@@ -1,5 +1,4 @@
 use crate::decoder;
-use crate::scraper;
 use crate::{KODIK_STATE, Response};
 use kodik_utils::Error;
 use reqwest::Client;
@@ -33,16 +32,16 @@ impl<'a> VideoInfo<'a> {
     /// # Errors
     ///
     /// Returns `KodikError::Regex` if any of the required video fields (type, hash, id) are not found in the response text.
-    pub(crate) fn from_response(html: &'_ str) -> Result<VideoInfo<'_>, Error> {
-        let from_response_re = lazy_regex::regex!(r"\.(?P<field>type|hash|id) = '(?P<value>.*?)';");
+    pub(crate) fn from_body(body: &'_ str) -> Result<VideoInfo<'_>, Error> {
+        let from_body_re = lazy_regex::regex!(r"\.(?P<field>type|hash|id) = '(?P<value>.*?)';");
 
-        log::debug!("Extracting video info from response...");
+        log::debug!("Extracting video info from body...");
 
         let mut r#type = None;
         let mut hash = None;
         let mut id = None;
 
-        for caps in from_response_re.captures_iter(html) {
+        for caps in from_body_re.captures_iter(body) {
             match &caps["field"] {
                 "type" => {
                     r#type = Some(
@@ -78,8 +77,8 @@ impl<'a> VideoInfo<'a> {
             hash.ok_or(Error::RegexMatch("videoInfo.hash not found".to_owned()))?,
             id.ok_or(Error::RegexMatch("videoInfo.id not found".to_owned()))?,
         );
-        log::trace!("Extracted video info: {video_info:#?}");
 
+        log::trace!("Extracted video info: {video_info:#?}");
         Ok(video_info)
     }
 
@@ -224,21 +223,28 @@ pub fn extract_endpoint(html: &str) -> Result<String, Error> {
 /// ```
 pub async fn parse(client: &Client, url: &str) -> Result<Response, Error> {
     let domain = kodik_utils::extract_domain(url)?;
-    let mut html = String::new();
+    let mut body = String::new();
 
     let video_info = if let Ok(video_info) = VideoInfo::from_url(url) {
         video_info
     } else {
-        html = scraper::get(client, url).await?;
-        VideoInfo::from_response(&html)?
+        body =
+            kodik_utils::fetch_as_text(client, url, kodik_utils::build_headers(url, None)?).await?;
+
+        VideoInfo::from_body(&body)?
     };
 
     loop {
         let endpoint = KODIK_STATE.endpoint();
 
         if !endpoint.is_empty() {
-            if let Ok(mut kodik_response) =
-                scraper::post(client, domain, &endpoint, &video_info).await
+            if let Ok(mut kodik_response) = kodik_utils::post_form_as_json(
+                client,
+                &format!("https://{domain}/{endpoint}"),
+                kodik_utils::build_headers(domain, None)?,
+                &video_info,
+            )
+            .await
             {
                 decoder::decode_links(&mut kodik_response)?;
                 return Ok(kodik_response);
@@ -250,15 +256,25 @@ pub async fn parse(client: &Client, url: &str) -> Result<Response, Error> {
         if KODIK_STATE.try_begin_update() {
             log::warn!("Endpoint not found in cache, updating...");
             let fetched;
-            let page_html = if html.is_empty() {
-                fetched = scraper::get(client, url).await?;
+
+            let body = if body.is_empty() {
+                fetched =
+                    kodik_utils::fetch_as_text(client, url, kodik_utils::build_headers(url, None)?)
+                        .await?;
+
                 &fetched
             } else {
-                &html
+                &body
             };
-            let player_url = extract_player_url(domain, page_html)?;
-            let player_html = scraper::get(client, &player_url).await?;
-            let new_endpoint = extract_endpoint(&player_html)?;
+
+            let player_body = kodik_utils::fetch_as_text(
+                client,
+                &extract_player_url(domain, body)?,
+                kodik_utils::build_headers(url, None)?,
+            )
+            .await?;
+
+            let new_endpoint = extract_endpoint(&player_body)?;
             KODIK_STATE.finish_update(new_endpoint);
             continue;
         }

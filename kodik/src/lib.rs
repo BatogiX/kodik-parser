@@ -46,45 +46,7 @@ pub async fn run(args: Vec<String>) -> ExitCode {
     let client = Client::new();
     let use_lazy = config.lazy || config.player.is_some();
 
-    let mut idx = 0;
-    while idx < config.urls.len() {
-        let Some(url) = config.urls.get(idx) else {
-            break;
-        };
-
-        if url.starts_with("https://shiki") {
-            match kodik_shiki::run(
-                &client,
-                url,
-                config.cookie.as_deref(),
-                config.translation_title.as_deref(),
-                config.translation_type.0.as_ref(),
-                config.episode,
-            )
-            .await
-            {
-                Ok(video_result) => match video_result {
-                    kodik_shiki::VideoResult::Episodes(episodes) => {
-                        let episode_count = episodes.len();
-                        config.urls.splice(idx..=idx, episodes);
-                        idx += episode_count;
-                    }
-                    kodik_shiki::VideoResult::Film(film) => {
-                        if let Some(url_ref) = config.urls.get_mut(idx) {
-                            *url_ref = film;
-                        }
-                        idx += 1;
-                    }
-                },
-                Err(e) => {
-                    log::error!("{e}");
-                    return ExitCode::FAILURE;
-                }
-            }
-        } else {
-            idx += 1;
-        }
-    }
+    // process_shiki_urls(&client, &mut config).await;
 
     let exit_code = if use_lazy {
         run_lazy(&client, config.urls, config.quality, config.player).await
@@ -227,3 +189,60 @@ fn spawn_player(player: &str, link: &str) -> Result<(), String> {
         .and_then(|mut child| child.wait().map(|_| ()))
         .map_err(|e| format!("failed to spawn player '{program}': {e}"))
 }
+
+// async fn process_shiki_urls(client: &Client, config: &mut Config) {
+//     async fn help_shiki_url(client: &Client, url: &str, config: &mut Config, idx: &mut usize) {
+//         match kodik_shiki::run(
+//             client,
+//             url,
+//             config.cookie.as_deref(),
+//             config.translation_title.as_deref(),
+//             config.translation_type.0.as_ref(),
+//             config.episode,
+//         )
+//         .await
+//         {
+//             Ok(video_result) => match video_result {
+//                 kodik_shiki::VideoResult::Episodes(episodes) => {
+//                     let episode_count = episodes.len();
+//                     config.urls.splice(*idx..*idx, episodes);
+//                     *idx += episode_count;
+//                 }
+//                 kodik_shiki::VideoResult::Film(film) => {
+//                     if let Some(url_ref) = config.urls.get_mut(*idx) {
+//                         *url_ref = film;
+//                     }
+//                     *idx += 1;
+//                 }
+//             },
+//             Err(e) => {
+//                 log::error!("{e}");
+//                 exit(1)
+//             }
+//         }
+//     }
+
+//     let mut idx = 0;
+//     while idx < config.urls.len() {
+//         if config.urls[idx].starts_with("https://shiki") {
+//             let url = config.urls.remove(idx);
+//             if config.related {
+//                 match kodik_shiki::get_franchise(client, &url, config.essential).await {
+//                     Ok(shiki_urls) => {
+//                         for shiki_url in &shiki_urls {
+//                             help_shiki_url(client, shiki_url, config, &mut idx).await;
+//                         }
+//                     }
+//                     Err(e) => {
+//                         log::error!("{e}");
+//                         exit(1)
+//                     }
+//                 }
+//             } else {
+//                 help_shiki_url(client, &url, config, &mut idx).await;
+//             }
+//         } else {
+//             idx += 1;
+//         }
+//     }
+// }

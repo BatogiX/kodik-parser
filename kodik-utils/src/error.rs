@@ -37,4 +37,7 @@ pub enum Error {
 
     #[error("{0}")]
     Regex(#[from] lazy_regex::regex::Error),
+
+    #[error("{0}")]
+    SerdeYaml(#[from] serde_saphyr::Error),
 }

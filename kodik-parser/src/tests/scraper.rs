@@ -1,12 +1,4 @@
-use std::sync::Arc;
-
-use reqwest::Client;
-
-use crate::{
-    Link, Links, Response,
-    parser::VideoInfo,
-    scraper::{get, post},
-};
+use crate::{Link, Links, Response};
 
 #[test]
 fn link_deserialization() {
@@ -70,22 +62,4 @@ fn kodik_response_deserialization() {
         }"#;
 
     let _: Response = serde_json::from_str(json).unwrap();
-}
-
-#[tokio::test]
-#[ignore = "requires network access"]
-async fn get_test() {
-    let client = Client::new();
-    let url = "https://kodikplayer.com/video/91873/060cab655974d46835b3f4405807acc2/720p";
-    get(&client, url).await.unwrap();
-}
-
-#[tokio::test]
-#[ignore = "requires network access"]
-async fn post_test() {
-    let client = Client::new();
-    let domain = "kodikplayer.com";
-    let endpoint = Arc::new("/ftor".to_string());
-    let video_info = VideoInfo::new("video", "060cab655974d46835b3f4405807acc2", "91873");
-    post(&client, domain, &endpoint, &video_info).await.unwrap();
 }
