@@ -19,7 +19,7 @@ use crate::{Error, random_user_agent};
 /// Returns an [`Error`] if:
 /// - The `host` string cannot be converted into a valid `HeaderValue`.
 /// - The `with_cookie` string (if present) cannot be converted into a valid `HeaderValue`.
-pub fn build_headers(host: &str, with_cookie: Option<&str>) -> Result<HeaderMap, Error> {
+pub fn build_headers(host: &str, with_cookie: Option<&str>) -> Result<HeaderMap, crate::Error> {
     let mut headers = HeaderMap::with_capacity(if with_cookie.is_some() { 3 } else { 2 });
     headers.insert(HOST, HeaderValue::from_str(host)?);
 
@@ -44,7 +44,7 @@ pub async fn fetch_as_text(
     client: &Client,
     url: &str,
     headers: HeaderMap,
-) -> Result<String, Error> {
+) -> Result<String, crate::Error> {
     log::info!("GET to {url}...");
     execute_text(client.get(url).headers(headers)).await
 }
@@ -61,7 +61,7 @@ pub async fn fetch_as_json<T: DeserializeOwned + Debug>(
     client: &Client,
     url: &str,
     headers: HeaderMap,
-) -> Result<T, Error> {
+) -> Result<T, crate::Error> {
     log::info!("GET to {url}...");
     execute_json(client.get(url).headers(headers)).await
 }
@@ -79,7 +79,7 @@ pub async fn post_form_as_json<T, F>(
     url: &str,
     headers: HeaderMap,
     form: &F,
-) -> Result<T, Error>
+) -> Result<T, crate::Error>
 where
     T: DeserializeOwned + Debug,
     F: Serialize + Sync + ?Sized,
@@ -110,7 +110,7 @@ where
     execute_json(client.post(url).json(json).headers(headers)).await
 }
 
-async fn execute_json<T>(builder: RequestBuilder) -> Result<T, Error>
+async fn execute_json<T>(builder: RequestBuilder) -> Result<T, crate::Error>
 where
     T: DeserializeOwned + Debug,
 {
@@ -120,14 +120,14 @@ where
     Ok(data)
 }
 
-async fn execute_text(builder: RequestBuilder) -> Result<String, Error> {
+async fn execute_text(builder: RequestBuilder) -> Result<String, crate::Error> {
     let resp = perform_request(builder).await?;
     let body = resp.text().await?;
     log::trace!("Response body: {body:#?}");
     Ok(body)
 }
 
-async fn perform_request(builder: RequestBuilder) -> Result<Response, Error> {
+async fn perform_request(builder: RequestBuilder) -> Result<Response, crate::Error> {
     let resp = builder
         .header(USER_AGENT, random_user_agent())
         .send()

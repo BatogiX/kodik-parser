@@ -10,6 +10,13 @@ const BLUE_BOLD: &str = "\x1b[1;34m";
 const BOLD: &str = "\x1b[1m";
 const DIM: &str = "\x1b[2m";
 
+pub fn setup_logging(level_filter: LevelFilter) {
+    log::set_logger(&LOGGER).ok();
+    log::set_max_level(level_filter);
+}
+
+static LOGGER: KodikLogger = KodikLogger;
+
 struct KodikLogger;
 
 impl Log for KodikLogger {
@@ -39,11 +46,4 @@ impl Log for KodikLogger {
     }
 
     fn flush(&self) {}
-}
-
-static LOGGER: KodikLogger = KodikLogger;
-
-pub fn setup_logging(level_filter: LevelFilter) {
-    log::set_logger(&LOGGER).ok();
-    log::set_max_level(level_filter);
 }

@@ -75,27 +75,31 @@ pub enum VideoResult {
     Film(String),
 }
 
-pub async fn run_franchise(client: &Client, url: &str) -> Result<(), Error> {
-    let ids = parser::extract_id(url)?;
+// pub async fn run_franchise(
+//     client: &Client,
+//     url: &str,
+//     with_cookie: Option<&str>,
+// ) -> Result<(), Error> {
+//     // let ids = parser::extract_id(url)?;
 
-    let franchise = fetch_franchise(client, url, ids)
-        .await?
-        .ok_or_else(|| Error::NotFound(format!("franchise not found for {url}")))?;
+//     // let franchise = fetch_franchise(client, url, ids)
+//     //     .await?
+//     //     .ok_or_else(|| Error::NotFound(format!("franchise not found for {url}")))?;
 
-    let mut page = 1;
-    let mut animes_vec: Vec<FetchAnimesResponse> = vec![];
+//     // let mut page = 1;
+//     // let mut animes_vec: Vec<FetchAnimesResponse> = vec![];
 
-    loop {
-        let animes = fetch_animes_by_franchise(client, url, &franchise, page, with_cookie).await?;
-        animes_vec.push(animes);
+//     // loop {
+//     //     let animes = fetch_animes_by_franchise(client, url, &franchise, page, with_cookie).await?;
+//     //     animes_vec.push(animes);
 
-        if animes.data.animes.len() < LIMIT {
-            break;
-        }
-    }
+//     //     if animes.data.animes.len() < LIMIT {
+//     //         break;
+//     //     }
+//     // }
 
-    Ok(())
-}
+//     // Ok(())
+// }
 
 pub async fn get_kodik_videos(client: &Client, id: &str) -> Result<SearchResponse, Error> {
     let token = env!("KODIK_TOKEN");

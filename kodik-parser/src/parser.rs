@@ -4,6 +4,115 @@ use kodik_utils::Error;
 use reqwest::Client;
 use serde::Serialize;
 
+/// Parses a Kodik player page asynchronously and returns structured video stream information.
+///
+/// This function performs the complete sequence of operations required to
+/// fetch, extract, and decode player data from a given Kodik URL:
+///
+/// 1. **Domain extraction** – Determines the Kodik domain from the provided URL.
+/// 2. **HTML retrieval** – Downloads the initial page HTML.
+/// 3. **Video info extraction** – Parses the embedded video information payload.
+/// 4. **API endpoint resolution** – If not cached, discovers the video info API endpoint.
+/// 5. **Player data request** – Sends a POST request to retrieve player data.
+/// 6. **Link decoding** – Decrypts and normalizes streaming URLs.
+///
+/// The function uses a cached `VIDEO_INFO_ENDPOINT` to avoid repeated endpoint lookups.
+///
+/// # Arguments
+/// * `client` – An [`reqwest::Client`] used for making HTTP requests.
+/// * `url` – A full Kodik player page URL.
+///
+/// # Returns
+/// A [`KodikResponse`] containing structured player metadata and stream URLs.
+///
+/// # Errors
+/// Returns an error if:
+/// - The domain cannot be extracted from the URL.
+/// - Network requests fail.
+/// - HTML parsing fails due to unexpected format changes.
+/// - The API endpoint cannot be found.
+/// - Link decoding fails.
+///
+/// # Example
+/// ```no_run
+/// use kodik_parser::reqwest::Client;
+///
+/// # async fn run() {
+/// let client = Client::new();
+/// let url = "https://kodikplayer.com/some-type/some-id/some-hash/some-quality";
+/// let kodik_response = kodik_parser::parse(&client, url).await.unwrap();
+///
+/// let link_720 = &kodik_response.links.quality_720.first().unwrap().src;
+/// println!("Link with 720p quality is: {link_720}");
+/// # }
+/// ```
+pub async fn parse(client: &Client, url: &str) -> Result<Response, Error> {
+    let domain = kodik_utils::extract_domain(url)?;
+    let mut body = String::new();
+
+    let video_info = if let Ok(video_info) = VideoInfo::from_url(url) {
+        video_info
+    } else {
+        log::warn!("video info not found in '{url}', fetching from body...");
+
+        body = kodik_utils::fetch_as_text(client, url, kodik_utils::build_headers(domain, None)?)
+            .await?;
+
+        VideoInfo::from_body(&body)?
+    };
+
+    loop {
+        let endpoint = KODIK_STATE.endpoint();
+
+        if !endpoint.is_empty() {
+            if let Ok(mut kodik_response) = kodik_utils::post_form_as_json(
+                client,
+                &format!("https://{domain}{endpoint}"),
+                kodik_utils::build_headers(domain, None)?,
+                &video_info,
+            )
+            .await
+            {
+                decoder::decode_links(&mut kodik_response)?;
+                return Ok(kodik_response);
+            }
+            KODIK_STATE.clear_endpoint();
+            continue;
+        }
+
+        if KODIK_STATE.try_begin_update() {
+            log::warn!("Endpoint not found in cache, updating...");
+            let fetched;
+
+            let body = if body.is_empty() {
+                fetched = kodik_utils::fetch_as_text(
+                    client,
+                    url,
+                    kodik_utils::build_headers(domain, None)?,
+                )
+                .await?;
+
+                &fetched
+            } else {
+                &body
+            };
+
+            let player_body = kodik_utils::fetch_as_text(
+                client,
+                &extract_player_url(domain, body)?,
+                kodik_utils::build_headers(domain, None)?,
+            )
+            .await?;
+
+            let new_endpoint = extract_endpoint(&player_body)?;
+            KODIK_STATE.finish_update(new_endpoint);
+            continue;
+        }
+
+        KODIK_STATE.wait_for_update().await;
+    }
+}
+
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct VideoInfo<'a> {
     r#type: &'a str,
@@ -128,14 +237,15 @@ impl<'a> VideoInfo<'a> {
 /// # Panics
 ///
 /// Panics if the regex capture group is not found, which should not happen if the regex is correct.
-pub fn extract_player_url(domain: &str, html: &str) -> Result<String, Error> {
+pub fn extract_player_url(domain: &str, body: &str) -> Result<String, Error> {
     let player_path_re = lazy_regex::regex!(
         r#"<script\s*type="text/javascript"\s*src="/(assets/js/app\.player_single[^"]*)""#
     );
 
     log::debug!("Extracting player url...");
+
     let player_path = player_path_re
-        .captures(html)
+        .captures(body)
         .ok_or(Error::RegexMatch(
             "there is no player path in response".to_owned(),
         ))?
@@ -144,12 +254,12 @@ pub fn extract_player_url(domain: &str, html: &str) -> Result<String, Error> {
             "player path capture group not found".to_owned(),
         ))?
         .as_str();
-    log::trace!("Extracted player url: {player_path}");
 
+    log::trace!("Extracted player url: {player_path}");
     Ok(format!("https://{domain}/{player_path}"))
 }
 
-/// Extracts the API endpoint from player response text.
+/// Extracts the API endpoint from player's body.
 ///
 /// # Errors
 ///
@@ -158,12 +268,13 @@ pub fn extract_player_url(domain: &str, html: &str) -> Result<String, Error> {
 /// # Panics
 ///
 /// Panics if the regex capture group is not found, which should not happen if the regex is correct.
-pub fn extract_endpoint(html: &str) -> Result<String, Error> {
+pub fn extract_endpoint(body: &str) -> Result<String, Error> {
     let endpoint_re = lazy_regex::regex!(r#"\$\.ajax\([^>]+,url:\s*atob\(["\']([\w=]+)["\']\)"#);
 
     log::debug!("Extracting endpoint...");
+
     let encoded_endpoint = endpoint_re
-        .captures(html)
+        .captures(body)
         .ok_or(Error::RegexMatch(
             "there is no api endpoint in player response".to_owned(),
         ))?
@@ -175,110 +286,5 @@ pub fn extract_endpoint(html: &str) -> Result<String, Error> {
 
     let endpoint = decoder::decode_base64(encoded_endpoint)?;
     log::trace!("Extracted endpoint: {endpoint}");
-
     Ok(endpoint)
-}
-
-/// Parses a Kodik player page asynchronously and returns structured video stream information.
-///
-/// This function performs the complete sequence of operations required to
-/// fetch, extract, and decode player data from a given Kodik URL:
-///
-/// 1. **Domain extraction** – Determines the Kodik domain from the provided URL.
-/// 2. **HTML retrieval** – Downloads the initial page HTML.
-/// 3. **Video info extraction** – Parses the embedded video information payload.
-/// 4. **API endpoint resolution** – If not cached, discovers the video info API endpoint.
-/// 5. **Player data request** – Sends a POST request to retrieve player data.
-/// 6. **Link decoding** – Decrypts and normalizes streaming URLs.
-///
-/// The function uses a cached `VIDEO_INFO_ENDPOINT` to avoid repeated endpoint lookups.
-///
-/// # Arguments
-/// * `client` – An [`reqwest::Client`] used for making HTTP requests.
-/// * `url` – A full Kodik player page URL.
-///
-/// # Returns
-/// A [`KodikResponse`] containing structured player metadata and stream URLs.
-///
-/// # Errors
-/// Returns an error if:
-/// - The domain cannot be extracted from the URL.
-/// - Network requests fail.
-/// - HTML parsing fails due to unexpected format changes.
-/// - The API endpoint cannot be found.
-/// - Link decoding fails.
-///
-/// # Example
-/// ```no_run
-/// use kodik_parser::reqwest::Client;
-///
-/// # async fn run() {
-/// let client = Client::new();
-/// let url = "https://kodikplayer.com/some-type/some-id/some-hash/some-quality";
-/// let kodik_response = kodik_parser::parse(&client, url).await.unwrap();
-///
-/// let link_720 = &kodik_response.links.quality_720.first().unwrap().src;
-/// println!("Link with 720p quality is: {link_720}");
-/// # }
-/// ```
-pub async fn parse(client: &Client, url: &str) -> Result<Response, Error> {
-    let domain = kodik_utils::extract_domain(url)?;
-    let mut body = String::new();
-
-    let video_info = if let Ok(video_info) = VideoInfo::from_url(url) {
-        video_info
-    } else {
-        body =
-            kodik_utils::fetch_as_text(client, url, kodik_utils::build_headers(url, None)?).await?;
-
-        VideoInfo::from_body(&body)?
-    };
-
-    loop {
-        let endpoint = KODIK_STATE.endpoint();
-
-        if !endpoint.is_empty() {
-            if let Ok(mut kodik_response) = kodik_utils::post_form_as_json(
-                client,
-                &format!("https://{domain}/{endpoint}"),
-                kodik_utils::build_headers(domain, None)?,
-                &video_info,
-            )
-            .await
-            {
-                decoder::decode_links(&mut kodik_response)?;
-                return Ok(kodik_response);
-            }
-            KODIK_STATE.clear_endpoint();
-            continue;
-        }
-
-        if KODIK_STATE.try_begin_update() {
-            log::warn!("Endpoint not found in cache, updating...");
-            let fetched;
-
-            let body = if body.is_empty() {
-                fetched =
-                    kodik_utils::fetch_as_text(client, url, kodik_utils::build_headers(url, None)?)
-                        .await?;
-
-                &fetched
-            } else {
-                &body
-            };
-
-            let player_body = kodik_utils::fetch_as_text(
-                client,
-                &extract_player_url(domain, body)?,
-                kodik_utils::build_headers(url, None)?,
-            )
-            .await?;
-
-            let new_endpoint = extract_endpoint(&player_body)?;
-            KODIK_STATE.finish_update(new_endpoint);
-            continue;
-        }
-
-        KODIK_STATE.wait_for_update().await;
-    }
 }
