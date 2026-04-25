@@ -15,31 +15,30 @@ mod tests;
 
 #[must_use]
 pub async fn run(args: Vec<String>) -> ExitCode {
-    let mut config = match Config::build(args) {
-        Ok(config) => {
-            logging::setup_logging(config.level_filter());
-            config
-        }
-        Err(err) => {
-            err.exit();
-        }
-    };
+    let mut config = Config::build(args).unwrap_or_else(|e| e.exit());
+    logging::setup_logging(config.level_filter());
+    let mut cache = Cache::load();
 
-    let mut cache_opt = Cache::load();
-
-    if let Some(ref cache) = cache_opt {
+    if let Some(ref cache) = cache {
         cache.apply(&mut config);
     }
 
     let client = Client::new();
-    let use_lazy = config.lazy || config.player.is_some();
 
     let exit_code = match config.execution_mode() {
-        ExecutionMode::Parallel => run_parallel(&client, config.urls, config.quality).await,
-        ExecutionMode::Lazy => run_lazy(&client, config.urls, config.quality, config.player).await,
+        ExecutionMode::Parallel => run_parallel(&client, config.urls, &config.quality).await,
+        ExecutionMode::Lazy => {
+            run_lazy(
+                &client,
+                config.urls,
+                &config.quality,
+                config.player.as_deref(),
+            )
+            .await
+        }
     };
 
-    if let Some(cache) = cache_opt.as_mut()
+    if let Some(ref mut cache) = cache
         && cache.is_changed(config.cookie.as_deref())
     {
         log::warn!("Updating cache... in {}", cache.path.display());
@@ -50,7 +49,7 @@ pub async fn run(args: Vec<String>) -> ExitCode {
     exit_code
 }
 
-async fn run_parallel(client: &Client, urls: Vec<String>, quality: Quality) -> ExitCode {
+async fn run_parallel(client: &Client, urls: Vec<String>, quality: &Quality) -> ExitCode {
     let results = {
         let mut set = tokio::task::JoinSet::new();
         for (idx, url) in urls.into_iter().enumerate() {
@@ -100,8 +99,8 @@ async fn run_parallel(client: &Client, urls: Vec<String>, quality: Quality) -> E
 async fn run_lazy(
     client: &Client,
     urls: Vec<String>,
-    quality: Quality,
-    player: Option<String>,
+    quality: &Quality,
+    player: Option<&str>,
 ) -> ExitCode {
     for url in urls {
         let kodik_response = match kodik_parser::parse(client, &url).await {
@@ -130,24 +129,14 @@ async fn run_lazy(
     ExitCode::SUCCESS
 }
 
-fn get_link(response: &Response, quality: Quality) -> Option<&str> {
-    match quality {
-        Quality::P360 => response
-            .links
-            .quality_360
-            .first()
-            .map(|link| link.src.as_str()),
-        Quality::P480 => response
-            .links
-            .quality_480
-            .first()
-            .map(|link| link.src.as_str()),
-        Quality::P720 => response
-            .links
-            .quality_720
-            .first()
-            .map(|link| link.src.as_str()),
-    }
+fn get_link<'a>(response: &'a Response, quality: &'a Quality) -> Option<&'a str> {
+    let links = match quality {
+        Quality::P360 => &response.links.quality_360,
+        Quality::P480 => &response.links.quality_480,
+        Quality::P720 => &response.links.quality_720,
+    };
+
+    links.first().map(|link| link.src.as_str())
 }
 
 fn spawn_player(player: &str, link: &str) -> Result<(), String> {

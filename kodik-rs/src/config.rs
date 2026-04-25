@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use clap::{ArgAction, Parser, ValueEnum, builder::styling};
 use kodik_shiki::TranslationType;
 use log::LevelFilter;
@@ -89,15 +87,6 @@ pub enum ExecutionMode {
     #[default]
     Parallel,
     Lazy,
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-pub enum Verbosity {
-    #[default]
-    Info,
-    Debug,
-    Trace,
-    Silent,
 }
 
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]
