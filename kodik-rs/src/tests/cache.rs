@@ -30,7 +30,7 @@ fn apply_test() {
     let cache = load_test();
     assert!(KODIK_STATE.endpoint().is_empty());
     assert_eq!(KODIK_STATE.shift(), 0);
-    cache.apply(&mut Config::build(vec![]).unwrap());
+    cache.apply(&mut Config::build(vec!["kodik".to_string(), "test".to_string()]).unwrap());
     assert!(!KODIK_STATE.endpoint().is_empty());
     assert_ne!(KODIK_STATE.shift(), 0);
 }

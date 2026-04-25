@@ -61,7 +61,7 @@ async fn run_parallel(client: &Client, urls: Vec<String>, quality: &Quality) -> 
         }
 
         let mut results = set.join_all().await;
-        results.sort_by_key(|a| a.0);
+        results.sort_unstable_by_key(|a| a.0);
         results
     };
 
@@ -141,25 +141,21 @@ fn get_link<'a>(response: &'a Response, quality: &'a Quality) -> Option<&'a str>
 
 fn spawn_player(player: &str, link: &str) -> Result<(), String> {
     let mut parts = player.split_whitespace();
-    let mut program = parts.next().ok_or("empty player")?;
+    let program = parts.next().ok_or("empty player")?;
 
-    // Patch for Windows to terminate mpv with Ctrl+C
-    program = if cfg!(target_os = "windows") && program == "mpv" {
+    let program = if cfg!(target_os = "windows") && program == "mpv" {
         "mpv.com"
     } else {
         program
     };
 
     let mut cmd = Command::new(program);
-    for arg in parts {
-        cmd.arg(arg);
-    }
-
-    cmd.arg(link)
+    cmd.args(parts)
+        .arg(link)
         .stdin(Stdio::null())
         .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .spawn()
-        .and_then(|mut child| child.wait().map(|_| ()))
-        .map_err(|e| format!("failed to spawn player '{program}': {e}"))
+        .stderr(Stdio::inherit());
+
+    let mut child = cmd.spawn().map_err(|e| format!("failed to spawn player '{program}': {e}"))?;
+    child.wait().map(|_| ()).map_err(|e| format!("player '{program}' failed: {e}"))
 }

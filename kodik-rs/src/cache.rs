@@ -35,7 +35,7 @@ impl Cache {
         match fs::read_to_string(cache_path) {
             Ok(content) => {
                 let mut cache = serde_json::from_str::<Self>(&content).ok()?;
-                cache.path.clone_from(&cache_path.to_owned());
+                cache.path.clone_from(cache_path);
                 Some(cache)
             }
             Err(_) => None,
@@ -54,14 +54,13 @@ impl Cache {
 
     pub fn update(&mut self, cookie: Option<&str>) {
         self.shift = Some(KODIK_STATE.shift());
-        let endpoint = KODIK_STATE.endpoint().to_string();
-        self.endpoint.clone_from(&Some(endpoint));
+        self.endpoint = Some(KODIK_STATE.endpoint().to_string());
         self.cookie = cookie.map(ToOwned::to_owned);
     }
 
     pub fn is_changed(&self, cookie: Option<&str>) -> bool {
         self.shift != Some(KODIK_STATE.shift())
-            || self.endpoint.as_deref() != Some(KODIK_STATE.endpoint().as_str())
+            || self.endpoint.as_deref() != Some(&*KODIK_STATE.endpoint())
             || self.cookie.as_deref() != cookie
     }
 
@@ -73,8 +72,8 @@ impl Cache {
             KODIK_STATE.set_endpoint(endpoint);
         }
 
-        if config.cookie.is_none() && self.cookie.is_some() {
-            config.cookie.clone_from(&self.cookie.clone());
+        if config.cookie.is_none() {
+            config.cookie.clone_from(&self.cookie);
         }
     }
 }

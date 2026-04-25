@@ -76,7 +76,7 @@ impl Config {
             match self.verbosity {
                 0 => LevelFilter::Info,
                 1 => LevelFilter::Debug,
-                2.. => LevelFilter::Trace,
+                _ => LevelFilter::Trace,
             }
         }
     }
@@ -90,6 +90,7 @@ pub enum ExecutionMode {
 }
 
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]
+#[non_exhaustive]
 pub enum Quality {
     #[value(name = "360")]
     P360 = 360,
@@ -101,6 +102,7 @@ pub enum Quality {
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
+#[non_exhaustive]
 pub enum TranslationTypeArg {
     Voice,
     Subtitles,
@@ -116,6 +118,7 @@ impl From<TranslationTypeArg> for TranslationType {
 }
 
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]
+#[non_exhaustive]
 pub enum RelatedMode {
     #[default]
     None,
