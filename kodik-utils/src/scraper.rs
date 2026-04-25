@@ -19,9 +19,9 @@ use crate::{Error, random_user_agent};
 /// Returns an [`Error`] if:
 /// - The `host` string cannot be converted into a valid `HeaderValue`.
 /// - The `with_cookie` string (if present) cannot be converted into a valid `HeaderValue`.
-pub fn build_headers(host: &str, with_cookie: Option<&str>) -> Result<HeaderMap, crate::Error> {
+pub fn build_headers(domain: &str, with_cookie: Option<&str>) -> Result<HeaderMap, crate::Error> {
     let mut headers = HeaderMap::with_capacity(if with_cookie.is_some() { 3 } else { 2 });
-    headers.insert(HOST, HeaderValue::from_str(host)?);
+    headers.insert(HOST, HeaderValue::from_str(domain)?);
 
     if let Some(cookie) = with_cookie {
         let mut cookie_header = HeaderValue::from_str(cookie)?;

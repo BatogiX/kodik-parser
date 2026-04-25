@@ -1,8 +1,5 @@
 use log::{Level, LevelFilter, Log, Metadata, Record};
 
-pub const CYAN: &str = "\x1b[0;36m";
-pub const GREEN_HIGH_INTENSITY_BOLD: &str = "\x1b[1;92m";
-pub const CYAN_HIGH_INTENSITY_BOLD: &str = "\x1b[1;96m";
 pub const YELLOW_BOLD: &str = "\x1b[1;33m";
 pub const RED_BOLD: &str = "\x1b[1;31m";
 pub const RESET: &str = "\x1b[0m";

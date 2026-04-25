@@ -2,7 +2,10 @@
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
 mod tests;
 
+mod anime;
 mod parser;
 mod scraper;
-pub use scraper::run;
-pub use scraper::{TranslationType, VideoResult};
+
+pub use anime::*;
+pub use parser::*;
+pub use scraper::*;

@@ -1,7 +1,6 @@
 use crate::cache::Cache;
-use crate::config::{COMMAND, Config, Quality};
+use crate::config::{Config, ExecutionMode, Quality};
 use kodik_parser::{Response, reqwest::Client};
-use log::LevelFilter;
 use std::io::Write;
 use std::io::{self, BufWriter};
 use std::process::{Command, ExitCode, Stdio};
@@ -16,42 +15,28 @@ mod tests;
 
 #[must_use]
 pub async fn run(args: Vec<String>) -> ExitCode {
-    if args.len() < 2 {
-        eprint!("{}", COMMAND.help());
-        return ExitCode::FAILURE;
-    }
-
     let mut config = match Config::build(args) {
         Ok(config) => {
-            logging::setup_logging(config.level_filter);
+            logging::setup_logging(config.level_filter());
             config
         }
         Err(err) => {
-            logging::setup_logging(LevelFilter::Info);
-            log::error!("{err}");
-            return ExitCode::FAILURE;
+            err.exit();
         }
     };
 
-    if config.help {
-        eprint!("{}", COMMAND.help());
-        return ExitCode::FAILURE;
-    }
-
     let mut cache_opt = Cache::load();
-    if let Some(cache) = cache_opt.as_ref() {
+
+    if let Some(ref cache) = cache_opt {
         cache.apply(&mut config);
     }
 
     let client = Client::new();
     let use_lazy = config.lazy || config.player.is_some();
 
-    // process_shiki_urls(&client, &mut config).await;
-
-    let exit_code = if use_lazy {
-        run_lazy(&client, config.urls, config.quality, config.player).await
-    } else {
-        run_parallel(&client, config.urls, config.quality).await
+    let exit_code = match config.execution_mode() {
+        ExecutionMode::Parallel => run_parallel(&client, config.urls, config.quality).await,
+        ExecutionMode::Lazy => run_lazy(&client, config.urls, config.quality, config.player).await,
     };
 
     if let Some(cache) = cache_opt.as_mut()
@@ -189,60 +174,3 @@ fn spawn_player(player: &str, link: &str) -> Result<(), String> {
         .and_then(|mut child| child.wait().map(|_| ()))
         .map_err(|e| format!("failed to spawn player '{program}': {e}"))
 }
-
-// async fn process_shiki_urls(client: &Client, config: &mut Config) {
-//     async fn help_shiki_url(client: &Client, url: &str, config: &mut Config, idx: &mut usize) {
-//         match kodik_shiki::run(
-//             client,
-//             url,
-//             config.cookie.as_deref(),
-//             config.translation_title.as_deref(),
-//             config.translation_type.0.as_ref(),
-//             config.episode,
-//         )
-//         .await
-//         {
-//             Ok(video_result) => match video_result {
-//                 kodik_shiki::VideoResult::Episodes(episodes) => {
-//                     let episode_count = episodes.len();
-//                     config.urls.splice(*idx..*idx, episodes);
-//                     *idx += episode_count;
-//                 }
-//                 kodik_shiki::VideoResult::Film(film) => {
-//                     if let Some(url_ref) = config.urls.get_mut(*idx) {
-//                         *url_ref = film;
-//                     }
-//                     *idx += 1;
-//                 }
-//             },
-//             Err(e) => {
-//                 log::error!("{e}");
-//                 exit(1)
-//             }
-//         }
-//     }
-
-//     let mut idx = 0;
-//     while idx < config.urls.len() {
-//         if config.urls[idx].starts_with("https://shiki") {
-//             let url = config.urls.remove(idx);
-//             if config.related {
-//                 match kodik_shiki::get_franchise(client, &url, config.essential).await {
-//                     Ok(shiki_urls) => {
-//                         for shiki_url in &shiki_urls {
-//                             help_shiki_url(client, shiki_url, config, &mut idx).await;
-//                         }
-//                     }
-//                     Err(e) => {
-//                         log::error!("{e}");
-//                         exit(1)
-//                     }
-//                 }
-//             } else {
-//                 help_shiki_url(client, &url, config, &mut idx).await;
-//             }
-//         } else {
-//             idx += 1;
-//         }
-//     }
-// }
