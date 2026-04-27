@@ -41,7 +41,7 @@ pub async fn run_impl(args: Vec<String>) -> Result<(), Box<dyn Error>> {
     let client = Client::builder().cookie_provider(Arc::new(jar)).build()?;
 
     match config.execution_mode() {
-        ExecutionMode::Parallel => run_parallel(&client, config.urls, &config.quality).await?,
+        ExecutionMode::Parallel => todo!("paralel does not implemented yet"),
         ExecutionMode::Lazy => {
             run_lazy(&client, &config).await?;
         }
@@ -108,11 +108,11 @@ async fn run_lazy(client: &Client, config: &Config) -> Result<(), Box<dyn Error>
     }
 
     for url in &config.urls {
-        match &url[..13] {
-            "https://shiki" => {
+        match &url.host_str() {
+            Some("shikimori.io" | "shikimori.net") => {
                 match kodik_shiki::resolve_anime(
                     client,
-                    url,
+                    url.as_str(),
                     config.cookies.is_some(),
                     config.translation_title.as_deref(),
                     config.translation_type.map(TranslationType::from).as_ref(),
@@ -130,7 +130,9 @@ async fn run_lazy(client: &Client, config: &Config) -> Result<(), Box<dyn Error>
                     }
                 }
             }
-            "https://kodik" => inner(&kodik_parser::parse(client, url).await?, config)?,
+            Some("kodikplayer.com") => {
+                inner(&kodik_parser::parse(client, url.as_str()).await?, config)?
+            }
             _ => return Err(format!("url '{url}' is not supported").into()),
         }
     }

@@ -20,7 +20,7 @@ const STYLES: styling::Styles = styling::Styles::styled()
 pub struct Config {
     /// Url(s) to parse
     #[arg(value_name = "URL", required = true)]
-    pub urls: Vec<String>,
+    pub urls: Vec<Url>,
 
     /// Outputs one by one (turns off parallelism)
     #[arg(short = 'l', long)]
@@ -93,30 +93,39 @@ impl Config {
 
         if let Some(cookies) = self.cookies.as_deref() {
             let file = File::open(cookies)?;
-            let reader = BufReader::new(file);
+            let mut reader = BufReader::new(file);
+            let mut line = String::new();
 
-            for line in reader.lines() {
-                let line = line?;
+            while reader.read_line(&mut line)? > 0 {
+                let trimmed = line.trim();
 
-                if line.starts_with('#') || line.is_empty() {
+                if trimmed.starts_with('#') || trimmed.is_empty() {
+                    line.clear();
                     continue;
                 }
 
-                let parts: Vec<&str> = line.split('\t').collect();
-                if parts.len() < 7 {
-                    continue;
-                }
+                let mut parts = trimmed.splitn(7, '\t');
 
-                let domain = parts[0];
-                let key = parts[5];
-                let value = parts[6];
+                let domain = parts.next().ok_or("malformed cookie: missing domain")?;
+                let key = parts.nth(4).ok_or("malformed cookie: missing name")?;
+                let value = parts.next().ok_or("malformed cookie: missing value")?;
 
-                let cookie_str = format!("{key}={value}; Domain={domain}");
+                let mut cookie = String::with_capacity(key.len() + value.len() + domain.len() + 10);
+                cookie.push_str(key);
+                cookie.push('=');
+                cookie.push_str(value);
+                cookie.push_str("; Domain=");
+                cookie.push_str(domain);
 
-                let url_str = format!("https://{}", domain.trim_start_matches('.'));
+                let domain = domain.trim_start_matches('.');
+                let mut url_str = String::with_capacity(8 + domain.len());
+                url_str.push_str("https://");
+                url_str.push_str(domain);
                 let url = Url::parse(&url_str)?;
 
-                jar.add_cookie_str(&cookie_str, &url);
+                jar.add_cookie_str(&cookie, &url);
+
+                line.clear();
             }
         }
 
