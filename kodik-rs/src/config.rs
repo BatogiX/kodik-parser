@@ -1,6 +1,13 @@
+use std::{
+    error::Error,
+    fs::File,
+    io::{BufRead, BufReader},
+};
+
 use clap::{ArgAction, Parser, ValueEnum, builder::styling};
 use kodik_shiki::TranslationType;
 use log::LevelFilter;
+use reqwest::{Url, cookie::Jar};
 
 const STYLES: styling::Styles = styling::Styles::styled()
     .header(styling::AnsiColor::BrightGreen.on_default().bold())
@@ -25,10 +32,10 @@ pub struct Config {
 
     /// Use verbose output (-vv very verbose)
     #[arg(short = 'v', long, action = ArgAction::Count, default_value = "0")]
-    pub verbosity: u8,
+    pub verbose: u8,
 
     /// Do not print log messages
-    #[arg(short = 's', long, conflicts_with = "verbosity")]
+    #[arg(short = 's', long, conflicts_with = "verbose")]
     pub silent: bool,
 
     /// Specify video quality
@@ -47,9 +54,9 @@ pub struct Config {
     #[arg(long, value_name = "TYPE")]
     pub translation_type: Option<TranslationTypeArg>,
 
-    /// Specify cookie to get your user rate
-    #[arg(long, value_name = "COOKIE")]
-    pub cookie: Option<String>,
+    /// Netscape formatted file to read cookies from
+    #[arg(long, value_name = "FILE")]
+    pub cookies: Option<String>,
 
     /// Expand a media database URL into all related URLs
     #[arg(long, value_name = "MODE", default_value = "none")]
@@ -73,12 +80,47 @@ impl Config {
         if self.silent {
             LevelFilter::Off
         } else {
-            match self.verbosity {
+            match self.verbose {
                 0 => LevelFilter::Info,
                 1 => LevelFilter::Debug,
                 _ => LevelFilter::Trace,
             }
         }
+    }
+
+    pub fn load_cookies(&self) -> Result<Jar, Box<dyn Error>> {
+        let jar = Jar::default();
+
+        if let Some(cookies) = self.cookies.as_deref() {
+            let file = File::open(cookies)?;
+            let reader = BufReader::new(file);
+
+            for line in reader.lines() {
+                let line = line?;
+
+                if line.starts_with('#') || line.is_empty() {
+                    continue;
+                }
+
+                let parts: Vec<&str> = line.split('\t').collect();
+                if parts.len() < 7 {
+                    continue;
+                }
+
+                let domain = parts[0];
+                let key = parts[5];
+                let value = parts[6];
+
+                let cookie_str = format!("{key}={value}; Domain={domain}");
+
+                let url_str = format!("https://{}", domain.trim_start_matches('.'));
+                let url = Url::parse(&url_str)?;
+
+                jar.add_cookie_str(&cookie_str, &url);
+            }
+        }
+
+        Ok(jar)
     }
 }
 

@@ -35,12 +35,13 @@ use serde::Serialize;
 ///
 /// # Example
 /// ```no_run
-/// use kodik_parser::reqwest::Client;
+/// use kodik_parser::parse;
+/// use reqwest::Client;
 ///
 /// # async fn run() {
 /// let client = Client::new();
 /// let url = "https://kodikplayer.com/some-type/some-id/some-hash/some-quality";
-/// let kodik_response = kodik_parser::parse(&client, url).await.unwrap();
+/// let kodik_response = parse(&client, url).await.unwrap();
 ///
 /// let link_720 = &kodik_response.links.quality_720.first().unwrap().src;
 /// println!("Link with 720p quality is: {link_720}");
@@ -55,8 +56,7 @@ pub async fn parse(client: &Client, url: &str) -> Result<Response, Error> {
     } else {
         log::warn!("video info not found in '{url}', fetching from body...");
 
-        body = kodik_utils::fetch_as_text(client, url, kodik_utils::build_headers(domain, None)?)
-            .await?;
+        body = kodik_utils::fetch_as_text(client, url, kodik_utils::build_headers(domain)?).await?;
 
         VideoInfo::from_body(&body)?
     };
@@ -68,7 +68,7 @@ pub async fn parse(client: &Client, url: &str) -> Result<Response, Error> {
             if let Ok(mut kodik_response) = kodik_utils::post_form_as_json(
                 client,
                 &format!("https://{domain}{endpoint}"),
-                kodik_utils::build_headers(domain, None)?,
+                kodik_utils::build_headers(domain)?,
                 &video_info,
             )
             .await
@@ -85,12 +85,9 @@ pub async fn parse(client: &Client, url: &str) -> Result<Response, Error> {
             let fetched;
 
             let body = if body.is_empty() {
-                fetched = kodik_utils::fetch_as_text(
-                    client,
-                    url,
-                    kodik_utils::build_headers(domain, None)?,
-                )
-                .await?;
+                fetched =
+                    kodik_utils::fetch_as_text(client, url, kodik_utils::build_headers(domain)?)
+                        .await?;
 
                 &fetched
             } else {
@@ -100,7 +97,7 @@ pub async fn parse(client: &Client, url: &str) -> Result<Response, Error> {
             let player_body = kodik_utils::fetch_as_text(
                 client,
                 &extract_player_url(domain, body)?,
-                kodik_utils::build_headers(domain, None)?,
+                kodik_utils::build_headers(domain)?,
             )
             .await?;
 

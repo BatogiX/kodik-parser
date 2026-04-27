@@ -5,7 +5,7 @@ use ua_generator::{
 
 #[must_use]
 pub fn random_user_agent() -> &'static str {
-    log::trace!("Spoofing user agent...");
+    log::debug!("Spoofing user agent...");
 
     let agents = ua::all_static_agents();
     let index = fastrand::usize(..agents.len());

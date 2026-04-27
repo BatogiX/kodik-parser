@@ -18,7 +18,6 @@ unsafe_code = "forbid"
 [workspace.lints.clippy]
 expect_used = "deny"
 unwrap_used = "deny"
-indexing_slicing = "deny"
 panic = "deny"
 
 all = { level = "deny", priority = -1 }

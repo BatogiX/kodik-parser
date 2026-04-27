@@ -3,8 +3,9 @@
 // mod tests;
 
 mod anime;
-mod parser;
-mod scraper;
+pub(crate) mod parser;
+mod related;
+pub(crate) mod scraper;
 
-pub use anime::{Response, UserRate, parse_anime};
+pub use anime::{Response, UserRate, resolve_anime};
 pub use scraper::{TranslationType, VideoResult};

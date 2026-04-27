@@ -1,11 +1,11 @@
 use reqwest::{
-    Client, RequestBuilder, Response,
-    header::{ACCEPT, COOKIE, HOST, HeaderMap, HeaderValue, USER_AGENT},
+    Client, RequestBuilder,
+    header::{ACCEPT, HOST, HeaderMap, HeaderValue, USER_AGENT},
 };
 use serde::{Serialize, de::DeserializeOwned};
 use std::fmt::Debug;
 
-use crate::{Error, random_user_agent};
+use crate::{Error, ua};
 
 /// Builds a `HeaderMap` with common headers.
 ///
@@ -19,15 +19,10 @@ use crate::{Error, random_user_agent};
 /// Returns an [`Error`] if:
 /// - The `host` string cannot be converted into a valid `HeaderValue`.
 /// - The `with_cookie` string (if present) cannot be converted into a valid `HeaderValue`.
-pub fn build_headers(domain: &str, with_cookie: Option<&str>) -> Result<HeaderMap, crate::Error> {
-    let mut headers = HeaderMap::with_capacity(if with_cookie.is_some() { 3 } else { 2 });
+pub fn build_headers(domain: &str) -> Result<HeaderMap, crate::Error> {
+    let mut headers = HeaderMap::with_capacity(2);
     headers.insert(HOST, HeaderValue::from_str(domain)?);
-
-    if let Some(cookie) = with_cookie {
-        let mut cookie_header = HeaderValue::from_str(cookie)?;
-        cookie_header.set_sensitive(true);
-        headers.insert(COOKIE, cookie_header);
-    }
+    headers.insert(USER_AGENT, HeaderValue::from_str(ua::random_user_agent())?);
 
     Ok(headers)
 }
@@ -114,24 +109,15 @@ async fn execute_json<T>(builder: RequestBuilder) -> Result<T, crate::Error>
 where
     T: DeserializeOwned + Debug,
 {
-    let resp = perform_request(builder.header(ACCEPT, "application/json")).await?;
+    let resp = builder.header(ACCEPT, "application/json").send().await?;
     let data = resp.json::<T>().await?;
     log::trace!("Response data: {data:#?}");
     Ok(data)
 }
 
 async fn execute_text(builder: RequestBuilder) -> Result<String, crate::Error> {
-    let resp = perform_request(builder).await?;
+    let resp = builder.send().await?;
     let body = resp.text().await?;
     log::trace!("Response body: {body:#?}");
     Ok(body)
-}
-
-async fn perform_request(builder: RequestBuilder) -> Result<Response, crate::Error> {
-    let resp = builder
-        .header(USER_AGENT, random_user_agent())
-        .send()
-        .await?;
-
-    Ok(resp)
 }

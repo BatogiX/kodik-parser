@@ -1,9 +1,14 @@
 use crate::cache::Cache;
 use crate::config::{Config, ExecutionMode, Quality};
-use kodik_parser::{Response, reqwest::Client};
+use kodik_parser::Response;
+use kodik_shiki::{TranslationType, VideoResult};
+use log::error;
+use reqwest::Client;
+use std::error::Error;
 use std::io::Write;
 use std::io::{self, BufWriter};
 use std::process::{Command, ExitCode, Stdio};
+use std::sync::Arc;
 
 mod cache;
 mod config;
@@ -13,43 +18,51 @@ mod logging;
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
 mod tests;
 
-#[must_use]
 pub async fn run(args: Vec<String>) -> ExitCode {
-    let mut config = Config::build(args).unwrap_or_else(|e| e.exit());
+    match run_impl(args).await {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => {
+            log::error!("{err}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+pub async fn run_impl(args: Vec<String>) -> Result<(), Box<dyn Error>> {
+    let config = Config::build(args).unwrap_or_else(|e| e.exit());
     logging::setup_logging(config.level_filter());
     let mut cache = Cache::load();
 
     if let Some(ref cache) = cache {
-        cache.apply(&mut config);
+        cache.apply();
     }
 
-    let client = Client::new();
+    let jar = config.load_cookies()?;
+    let client = Client::builder().cookie_provider(Arc::new(jar)).build()?;
 
-    let exit_code = match config.execution_mode() {
-        ExecutionMode::Parallel => run_parallel(&client, config.urls, &config.quality).await,
+    match config.execution_mode() {
+        ExecutionMode::Parallel => run_parallel(&client, config.urls, &config.quality).await?,
         ExecutionMode::Lazy => {
-            run_lazy(
-                &client,
-                config.urls,
-                &config.quality,
-                config.player.as_deref(),
-            )
-            .await
+            run_lazy(&client, &config).await?;
         }
-    };
+    }
 
     if let Some(ref mut cache) = cache
-        && cache.is_changed(config.cookie.as_deref())
+        && cache.is_changed()
     {
-        log::warn!("Updating cache... in {}", cache.path.display());
-        cache.update(config.cookie.as_deref());
+        log::warn!("updating cache... in {}", cache.path.display());
+        cache.update();
         cache.save();
     }
 
-    exit_code
+    Ok(())
 }
 
-async fn run_parallel(client: &Client, urls: Vec<String>, quality: &Quality) -> ExitCode {
+async fn run_parallel(
+    client: &Client,
+    urls: Vec<String>,
+    quality: &Quality,
+) -> Result<(), Box<dyn Error>> {
     let results = {
         let mut set = tokio::task::JoinSet::new();
         for (idx, url) in urls.into_iter().enumerate() {
@@ -69,64 +82,60 @@ async fn run_parallel(client: &Client, urls: Vec<String>, quality: &Quality) -> 
     let mut handle = BufWriter::new(stdout.lock());
 
     for (_, res) in results {
-        let kodik_response = match res {
-            Ok(r) => r,
-            Err(e) => {
-                log::error!("{e}");
-                return ExitCode::FAILURE;
-            }
-        };
+        let kodik_response = res?;
 
-        let Some(link) = get_link(&kodik_response, quality) else {
-            log::error!("no playable links found for this video");
-            return ExitCode::FAILURE;
-        };
+        let link =
+            get_link(&kodik_response, quality).ok_or("no playable links found for this video")?;
 
-        if let Err(e) = writeln!(handle, "{link}") {
-            log::error!("{e}");
-            return ExitCode::FAILURE;
-        }
+        writeln!(handle, "{link}")?;
     }
 
-    if let Err(e) = handle.flush() {
-        log::error!("{e}");
-        return ExitCode::FAILURE;
-    }
-
-    ExitCode::SUCCESS
+    Ok(())
 }
 
-async fn run_lazy(
-    client: &Client,
-    urls: Vec<String>,
-    quality: &Quality,
-    player: Option<&str>,
-) -> ExitCode {
-    for url in urls {
-        let kodik_response = match kodik_parser::parse(client, &url).await {
-            Ok(r) => r,
-            Err(e) => {
-                log::error!("{e}");
-                return ExitCode::FAILURE;
-            }
-        };
+async fn run_lazy(client: &Client, config: &Config) -> Result<(), Box<dyn Error>> {
+    fn inner(kodik_response: &Response, config: &Config) -> Result<(), Box<dyn Error>> {
+        let link = get_link(kodik_response, &config.quality)
+            .ok_or("no playable links found for this video")?;
 
-        let Some(link) = get_link(&kodik_response, quality) else {
-            log::error!("no playable links found for this video");
-            return ExitCode::FAILURE;
-        };
+        if let Some(player) = &config.player {
+            spawn_player(player, link)?;
+        } else {
+            writeln!(io::stdout(), "{link}")?;
+        }
 
-        if let Some(player) = &player {
-            if let Err(e) = spawn_player(player, link) {
-                log::error!("{e}");
-                return ExitCode::FAILURE;
+        Ok(())
+    }
+
+    for url in &config.urls {
+        match &url[..13] {
+            "https://shiki" => {
+                match kodik_shiki::resolve_anime(
+                    client,
+                    url,
+                    config.cookies.is_some(),
+                    config.translation_title.as_deref(),
+                    config.translation_type.map(TranslationType::from).as_ref(),
+                    config.episode,
+                )
+                .await?
+                {
+                    VideoResult::Episodes(episodes) => {
+                        for episode in &episodes {
+                            inner(&kodik_parser::parse(client, episode).await?, config)?;
+                        }
+                    }
+                    VideoResult::Film(ref film) => {
+                        inner(&kodik_parser::parse(client, film).await?, config)?;
+                    }
+                }
             }
-        } else if let Err(e) = writeln!(io::stdout(), "{link}") {
-            log::error!("{e}");
-            return ExitCode::FAILURE;
+            "https://kodik" => inner(&kodik_parser::parse(client, url).await?, config)?,
+            _ => return Err(format!("url '{url}' is not supported").into()),
         }
     }
-    ExitCode::SUCCESS
+
+    Ok(())
 }
 
 fn get_link<'a>(response: &'a Response, quality: &'a Quality) -> Option<&'a str> {
@@ -156,6 +165,11 @@ fn spawn_player(player: &str, link: &str) -> Result<(), String> {
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
 
-    let mut child = cmd.spawn().map_err(|e| format!("failed to spawn player '{program}': {e}"))?;
-    child.wait().map(|_| ()).map_err(|e| format!("player '{program}' failed: {e}"))
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("failed to spawn player '{program}': {e}"))?;
+    child
+        .wait()
+        .map(|_| ())
+        .map_err(|e| format!("player '{program}' failed: {e}"))
 }

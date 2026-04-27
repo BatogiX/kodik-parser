@@ -7,8 +7,6 @@ use std::{
 use kodik_parser::KODIK_STATE;
 use serde::{Deserialize, Serialize};
 
-use crate::config::Config;
-
 pub static CACHE_PATH: LazyLock<Option<PathBuf>> =
     LazyLock::new(|| dirs::cache_dir().map(|cache_dir| cache_dir.join("kodik").join("cache.json")));
 
@@ -16,7 +14,6 @@ pub static CACHE_PATH: LazyLock<Option<PathBuf>> =
 pub struct Cache {
     pub shift: Option<u8>,
     pub endpoint: Option<String>,
-    pub cookie: Option<String>,
     #[serde(skip)]
     pub path: PathBuf,
 }
@@ -52,28 +49,22 @@ impl Cache {
         serde_json::to_writer_pretty(file, self).ok()
     }
 
-    pub fn update(&mut self, cookie: Option<&str>) {
+    pub fn update(&mut self) {
         self.shift = Some(KODIK_STATE.shift());
         self.endpoint = Some(KODIK_STATE.endpoint().to_string());
-        self.cookie = cookie.map(ToOwned::to_owned);
     }
 
-    pub fn is_changed(&self, cookie: Option<&str>) -> bool {
+    pub fn is_changed(&self) -> bool {
         self.shift != Some(KODIK_STATE.shift())
             || self.endpoint.as_deref() != Some(&*KODIK_STATE.endpoint())
-            || self.cookie.as_deref() != cookie
     }
 
-    pub fn apply(&self, config: &mut Config) {
+    pub fn apply(&self) {
         if let Some(shift) = self.shift {
             KODIK_STATE.set_shift(shift);
         }
         if let Some(endpoint) = self.endpoint.clone() {
             KODIK_STATE.set_endpoint(endpoint);
-        }
-
-        if config.cookie.is_none() {
-            config.cookie.clone_from(&self.cookie);
         }
     }
 }

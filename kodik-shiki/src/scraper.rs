@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, fmt::Debug};
 
 use kodik_utils::Error;
+use lazy_regex::{Regex, regex};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
@@ -46,13 +47,66 @@ pub async fn get_kodik_videos(client: &Client, id: &str) -> Result<SearchRespons
         "https://kodik-api.com/search?token={token}&shikimori_id={id}&with_seasons=true&with_episodes=true"
     );
 
-    let headers = kodik_utils::build_headers("kodik-api.com", None)?;
+    let headers = kodik_utils::build_headers("kodik-api.com")?;
     kodik_utils::fetch_as_json(client, &url, headers).await
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct SearchResponse {
     pub results: Vec<SearchResult>,
+}
+
+impl SearchResponse {
+    pub fn find_search_result(
+        self,
+        translation_title: Option<&str>,
+        translation_type: Option<&TranslationType>,
+    ) -> Result<SearchResult, Error> {
+        let mut results = self.results;
+
+        if let Some(title) = translation_title {
+            let title_re = Regex::new(&format!(r"(?i).*{title}.*"))?;
+
+            let found_idx = results
+                .iter()
+                .position(|r| title_re.is_match(&r.translation.title));
+
+            match found_idx {
+                Some(idx) => {
+                    let result = results.remove(idx);
+                    log::info!("Found translation title '{}'", result.translation.title);
+                    Ok(result)
+                }
+                None => translation_type.map_or_else(
+                    || {
+                        Err(Error::NotFound(format!(
+                            "no video source with title '{title}'"
+                        )))
+                    },
+                    |r#type| {
+                        results
+                            .into_iter()
+                            .find(|r| r.translation.r#type == *r#type)
+                            .ok_or(Error::NotFound(
+                                "no video source with matching type".to_string(),
+                            ))
+                    },
+                ),
+            }
+        } else if let Some(search_type) = translation_type {
+            results
+                .into_iter()
+                .find(|r| r.translation.r#type == *search_type)
+                .ok_or(Error::NotFound(
+                    "no video source with matching type".to_string(),
+                ))
+        } else {
+            results
+                .into_iter()
+                .next()
+                .ok_or(Error::NotFound("no video sources found".to_string()))
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -140,7 +194,7 @@ pub async fn get_not_anime_ids(
     let yaml_body = kodik_utils::fetch_as_text(
         client,
         "https://raw.githubusercontent.com/shikimori/neko-achievements/refs/heads/master/priv/rules/_franchises.yml",
-        kodik_utils::build_headers("raw.githubusercontent.com", None)?,
+        kodik_utils::build_headers("raw.githubusercontent.com")?,
     ).await?;
 
     let achievements: Achievements = serde_saphyr::from_str(&yaml_body)?;
@@ -193,7 +247,7 @@ pub async fn fetch_franchise(
     let resp: FetchFranchiseResponse = kodik_utils::post_json_as_json(
         client,
         url,
-        kodik_utils::build_headers(kodik_utils::extract_domain(url)?, None)?,
+        kodik_utils::build_headers(kodik_utils::extract_domain(url)?)?,
         &json,
     )
     .await?;
@@ -227,7 +281,6 @@ pub async fn fetch_animes_by_franchise(
     url: &str,
     franchise: &str,
     page: usize,
-    with_cookie: Option<&str>,
 ) -> Result<FetchAnimesResponse, Error> {
     const ANIMES_BY_FRANCHISE_QUERY: &str =
         "query($franchise: String!, $page: PositiveInt!, $limit: PositiveInt!) {
@@ -267,7 +320,7 @@ pub async fn fetch_animes_by_franchise(
     let resp: FetchAnimesResponse = kodik_utils::post_json_as_json(
         client,
         url,
-        kodik_utils::build_headers(kodik_utils::extract_domain(url)?, with_cookie)?,
+        kodik_utils::build_headers(kodik_utils::extract_domain(url)?)?,
         &json,
     )
     .await?;
