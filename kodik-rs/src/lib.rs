@@ -131,7 +131,7 @@ async fn run_lazy(client: &Client, config: &Config) -> Result<(), Box<dyn Error>
                 }
             }
             Some("kodikplayer.com") => {
-                inner(&kodik_parser::parse(client, url.as_str()).await?, config)?
+                inner(&kodik_parser::parse(client, url.as_str()).await?, config)?;
             }
             _ => return Err(format!("url '{url}' is not supported").into()),
         }

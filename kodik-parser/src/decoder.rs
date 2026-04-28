@@ -1,57 +1,55 @@
-use crate::{KODIK_STATE, scraper::Response};
+use crate::{KODIK_STATE, Link, scraper::Response};
 use base64::{Engine as _, engine::general_purpose};
 use kodik_utils::Error;
 
 const MIN_SHIFT: u8 = 0;
 const MAX_SHIFT: u8 = 26;
 
-/// Decodes links in the Kodik response.
-///
-/// # Errors
-///
-/// Returns a `KodikError` if decoding fails for any of the links.
-pub fn decode_links(kodik_response: &mut Response) -> Result<(), Error> {
-    log::debug!("Decoding links...");
+impl Response {
+    /// Decodes links in the Kodik response.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `KodikError` if decoding fails for any of the links.
+    pub(crate) fn decode_links(&mut self) -> Result<(), Error> {
+        log::debug!("Decoding links...");
 
-    for link in &mut kodik_response.links.quality_360 {
-        link.src = decode_link(&link.src)?;
+        for link in &mut self.links.quality_360 {
+            link.decode_src()?;
+        }
+
+        for link in &mut self.links.quality_480 {
+            link.decode_src()?;
+        }
+
+        for link in &mut self.links.quality_720 {
+            link.decode_src()?;
+        }
+
+        log::trace!("Decoded links: {:#?}", self.links);
+        Ok(())
     }
-
-    let base_360 = kodik_response.links.quality_360.first();
-
-    for link in &mut kodik_response.links.quality_480 {
-        link.src = match base_360 {
-            Some(link) => link.src.replace("/360.mp4", "/480.mp4"),
-            None => decode_link(&link.src)?,
-        };
-    }
-
-    for link in &mut kodik_response.links.quality_720 {
-        link.src = match base_360 {
-            Some(link) => link.src.replace("/360.mp4", "/720.mp4"),
-            None => decode_link(&link.src)?,
-        };
-    }
-
-    log::trace!("Decoded links: {:#?}", kodik_response.links);
-    Ok(())
 }
 
-pub fn decode_link(src: &str) -> Result<String, Error> {
-    let shift = KODIK_STATE.shift().clamp(MIN_SHIFT, MAX_SHIFT);
+impl Link {
+    fn decode_src(&mut self) -> Result<(), Error> {
+        let shift = KODIK_STATE.shift().clamp(MIN_SHIFT, MAX_SHIFT);
 
-    if let Ok(decoded) = try_decode(src, shift) {
-        return Ok(decoded);
-    }
-
-    for shift in MIN_SHIFT..=MAX_SHIFT {
-        if let Ok(decoded) = try_decode(src, shift) {
-            KODIK_STATE.set_shift(shift);
-            return Ok(decoded);
+        if let Ok(decoded) = try_decode(&self.src, shift) {
+            self.src = decoded;
+            return Ok(());
         }
-    }
 
-    Err(Error::LinkCannotBeDecoded(src.to_owned()))
+        for shift in MIN_SHIFT..=MAX_SHIFT {
+            if let Ok(decoded) = try_decode(&self.src, shift) {
+                KODIK_STATE.set_shift(shift);
+                self.src = decoded;
+                return Ok(());
+            }
+        }
+
+        Err(Error::LinkCannotBeDecoded(self.src.clone()))
+    }
 }
 
 pub fn try_decode(encoded: &str, shift: u8) -> Result<String, Error> {

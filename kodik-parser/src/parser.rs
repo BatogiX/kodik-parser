@@ -65,7 +65,7 @@ pub async fn parse(client: &Client, url: &str) -> Result<Response, Error> {
         let endpoint = KODIK_STATE.endpoint();
 
         if !endpoint.is_empty() {
-            if let Ok(mut kodik_response) = kodik_utils::post_form_as_json(
+            if let Ok(mut kodik_response) = kodik_utils::post_form_as_json::<Response, VideoInfo>(
                 client,
                 &format!("https://{domain}{endpoint}"),
                 kodik_utils::build_headers(domain)?,
@@ -73,7 +73,7 @@ pub async fn parse(client: &Client, url: &str) -> Result<Response, Error> {
             )
             .await
             {
-                decoder::decode_links(&mut kodik_response)?;
+                kodik_response.decode_links()?;
                 return Ok(kodik_response);
             }
             KODIK_STATE.clear_endpoint();
