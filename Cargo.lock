@@ -759,6 +759,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "kodik-mpv-plugin"
+version = "0.1.0"
+
+[[package]]
 name = "kodik-parser"
 version = "3.0.1"
 dependencies = [
