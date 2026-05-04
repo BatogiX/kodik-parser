@@ -3,7 +3,7 @@ use crate::config::{Config, ExecutionMode, Quality};
 use kodik_parser::Response;
 use kodik_shiki::TranslationType;
 use reqwest::Client;
-use reqwest::cookie::CookieStore;
+use reqwest::cookie::{CookieStore, Jar};
 use std::error::Error;
 use std::fmt::Write as FmtWrite;
 use std::io::Write;
@@ -38,13 +38,13 @@ pub async fn run_impl(args: Vec<String>) -> Result<(), Box<dyn Error>> {
         cache.apply();
     }
 
-    let jar = config.load_cookies()?;
-    let client = Client::builder().cookie_provider(Arc::new(jar)).build()?;
+    let jar = Arc::new(config.load_cookies()?);
+    let client = Client::builder().cookie_provider(Arc::clone(&jar)).build()?;
 
     match config.execution_mode() {
         ExecutionMode::Parallel => todo!("paralel does not implemented yet"),
         ExecutionMode::Lazy => {
-            run_lazy(&client, &config).await?;
+            run_lazy(&client, &config, Arc::clone(&jar)).await?;
         }
     }
 
@@ -89,7 +89,7 @@ async fn run_parallel(client: &Client, urls: Vec<String>, quality: &Quality) -> 
     Ok(())
 }
 
-async fn run_lazy(client: &Client, config: &Config) -> Result<(), Box<dyn Error>> {
+async fn run_lazy(client: &Client, config: &Config, jar: Arc<Jar>) -> Result<(), Box<dyn Error>> {
     fn inner(
         kodik_response: &Response,
         config: &Config,
@@ -108,8 +108,14 @@ async fn run_lazy(client: &Client, config: &Config) -> Result<(), Box<dyn Error>
     }
 
     for url in &config.urls {
-        match &url.host_str() {
-            Some("shikimori.io" | "shikimori.net") => {
+        match url
+            .host_str()
+            .ok_or_else(|| format!("url '{url}' is not supported"))?
+            .split_once('.')
+            .ok_or_else(|| format!("url '{url}' is not supported"))?
+            .0
+        {
+            "shikimori" => {
                 let search_response = kodik_shiki::resolve_anime(client, url.as_str()).await?;
 
                 let search_result = search_response.find_search_result(
@@ -117,10 +123,10 @@ async fn run_lazy(client: &Client, config: &Config) -> Result<(), Box<dyn Error>
                     config.translation_type.map(TranslationType::from).as_ref(),
                 )?;
 
-                let skip = if let Some(skip) = config.episode {
-                    skip
+                let skip = if jar.cookies(url).is_some() {
+                    kodik_shiki::fetch_user_rate(client, url.as_str()).await?.unwrap_or(0)
                 } else {
-                    kodik_shiki::fetch_user_rate(client, url.as_str()).await?
+                    0
                 };
 
                 match &search_result.seasons {
@@ -143,7 +149,7 @@ async fn run_lazy(client: &Client, config: &Config) -> Result<(), Box<dyn Error>
                     )?,
                 }
             }
-            Some("kodikplayer.com") => {
+            "kodikplayer" => {
                 inner(&kodik_parser::parse(client, url.as_str()).await?, config, None, None)?;
             }
             _ => return Err(format!("url '{url}' is not supported").into()),

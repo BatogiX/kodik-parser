@@ -1,8 +1,8 @@
+use crate::VideoResult;
 use crate::scraper::SearchResponse;
-use crate::{TranslationType, VideoResult};
 use crate::{parser, scraper};
 use kodik_utils::Error;
-use reqwest::{Client, header};
+use reqwest::Client;
 use serde::Deserialize;
 
 /// Retrieves video results for an anime from Kodik.
@@ -38,14 +38,14 @@ pub struct VideoMetaData {
     episodes: Vec<usize>,
 }
 
-pub async fn fetch_user_rate(client: &Client, url: &str) -> Result<usize, Error> {
+pub async fn fetch_user_rate(client: &Client, url: &str) -> Result<Option<usize>, Error> {
     let domain = kodik_utils::extract_domain(url)?;
     let id = parser::extract_id(url)?;
     let url = format!("https://{domain}/api/animes/{id}");
     let headers = kodik_utils::build_headers(domain)?;
     let shiki_api_animes: ShikiApiAnimes = kodik_utils::fetch_as_json(client, &url, headers).await?;
 
-    Ok(shiki_api_animes.user_rate.map_or(0, |ur| ur.episodes))
+    Ok(shiki_api_animes.user_rate.map(|ur| ur.episodes))
 }
 
 #[derive(Debug, Deserialize)]

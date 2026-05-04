@@ -42,10 +42,6 @@ pub struct Config {
     #[arg(short = 'q', long, value_name = "QUALITY", default_value = "720")]
     pub quality: Quality,
 
-    /// Specify from which episode start with
-    #[arg(short = 'e', long, value_name = "EPISODE")]
-    pub episode: Option<usize>,
-
     /// Specify translation title
     #[arg(long, value_name = "TITLE")]
     pub translation_title: Option<String>,
