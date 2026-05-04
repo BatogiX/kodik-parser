@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, fmt::Debug};
+use std::{
+    collections::BTreeMap,
+    fmt::{Debug, Display},
+};
 
 use kodik_utils::Error;
 use lazy_regex::{Regex, regex};
@@ -43,12 +46,13 @@ pub enum VideoResult {
 
 pub async fn get_kodik_videos(client: &Client, id: &str) -> Result<SearchResponse, Error> {
     let token = env!("KODIK_TOKEN");
-    let url = format!(
-        "https://kodik-api.com/search?token={token}&shikimori_id={id}&with_seasons=true&with_episodes=true"
-    );
+    let url =
+        format!("https://kodik-api.com/search?token={token}&shikimori_id={id}&with_seasons=true&with_episodes=true");
 
     let headers = kodik_utils::build_headers("kodik-api.com")?;
-    kodik_utils::fetch_as_json(client, &url, headers).await
+    let search_response: SearchResponse = kodik_utils::fetch_as_json(client, &url, headers).await?;
+
+    Ok(search_response)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -58,60 +62,38 @@ pub struct SearchResponse {
 
 impl SearchResponse {
     pub fn find_search_result(
-        self,
+        &self,
         translation_title: Option<&str>,
         translation_type: Option<&TranslationType>,
-    ) -> Result<SearchResult, Error> {
-        let mut results = self.results;
+    ) -> Result<&SearchResult, Error> {
+        if let Some(translation_title) = translation_title {
+            let title_re = Regex::new(&format!(r"(?i).*{}.*", regex::escape(translation_title)))?;
 
-        if let Some(title) = translation_title {
-            let title_re = Regex::new(&format!(r"(?i).*{title}.*"))?;
-
-            let found_idx = results
-                .iter()
-                .position(|r| title_re.is_match(&r.translation.title));
-
-            match found_idx {
-                Some(idx) => {
-                    let result = results.remove(idx);
-                    log::info!("Found translation title '{}'", result.translation.title);
-                    Ok(result)
-                }
-                None => translation_type.map_or_else(
-                    || {
-                        Err(Error::NotFound(format!(
-                            "no video source with title '{title}'"
-                        )))
-                    },
-                    |r#type| {
-                        results
-                            .into_iter()
-                            .find(|r| r.translation.r#type == *r#type)
-                            .ok_or(Error::NotFound(
-                                "no video source with matching type".to_string(),
-                            ))
-                    },
-                ),
+            if let Some(result) = self.results.iter().find(|r| title_re.is_match(&r.translation.title)) {
+                log::info!("Found translation title '{}'", result.translation.title);
+                return Ok(result);
             }
-        } else if let Some(search_type) = translation_type {
-            results
-                .into_iter()
-                .find(|r| r.translation.r#type == *search_type)
-                .ok_or(Error::NotFound(
-                    "no video source with matching type".to_string(),
-                ))
-        } else {
-            results
-                .into_iter()
-                .next()
-                .ok_or(Error::NotFound("no video sources found".to_string()))
+
+            log::warn!("no video source with title '{translation_title}'");
+        } else if let Some(translation_type) = translation_type {
+            if let Some(result) = self.results.iter().find(|r| r.translation.r#type == *translation_type) {
+                log::info!("Found translation title '{}'", result.translation.title);
+                return Ok(result);
+            }
+
+            log::warn!("no video source with type '{translation_type}'");
         }
+
+        self.results
+            .first()
+            .ok_or_else(|| Error::NotFound("no video sources found".to_string()))
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct SearchResult {
     pub link: String,
+    pub title: String,
     pub translation: Translation,
     pub seasons: Option<BTreeMap<usize, Season>>,
 }
@@ -127,6 +109,15 @@ pub struct Translation {
 pub enum TranslationType {
     Voice,
     Subtitles,
+}
+
+impl Display for TranslationType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Voice => write!(f, "voice"),
+            Self::Subtitles => write!(f, "subtitles"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -187,52 +178,7 @@ pub struct Node {
 //         .collect())
 // }
 
-pub async fn get_not_anime_ids(
-    client: &Client,
-    neko_id: &str,
-) -> Result<Option<Vec<usize>>, Error> {
-    let yaml_body = kodik_utils::fetch_as_text(
-        client,
-        "https://raw.githubusercontent.com/shikimori/neko-achievements/refs/heads/master/priv/rules/_franchises.yml",
-        kodik_utils::build_headers("raw.githubusercontent.com")?,
-    ).await?;
-
-    let achievements: Achievements = serde_saphyr::from_str(&yaml_body)?;
-
-    Ok(achievements
-        .into_iter()
-        .find(|ach| ach.level == Level::One && ach.neko_id == neko_id)
-        .and_then(|ach| ach.filters.not_anime_ids))
-}
-
-type Achievements = Vec<Achievement>;
-
-#[derive(Debug, Deserialize)]
-struct Achievement {
-    pub neko_id: String,
-    pub level: Level,
-    pub filters: Filters,
-}
-
-#[derive(Debug, Deserialize, PartialEq, Eq)]
-pub enum Level {
-    #[serde(alias = "0")]
-    Zero,
-    #[serde(alias = "1")]
-    One,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Filters {
-    pub franchise: String,
-    pub not_anime_ids: Option<Vec<usize>>,
-}
-
-pub async fn fetch_franchise(
-    client: &Client,
-    url: &str,
-    ids: &str,
-) -> Result<Option<String>, Error> {
+pub async fn fetch_franchise(client: &Client, url: &str, ids: &str) -> Result<Option<String>, Error> {
     const FRANCHISE_QUERY: &str = "query($ids: String!) {
       animes(ids: $ids, limit: 1) {
         franchise
@@ -282,8 +228,7 @@ pub async fn fetch_animes_by_franchise(
     franchise: &str,
     page: usize,
 ) -> Result<FetchAnimesResponse, Error> {
-    const ANIMES_BY_FRANCHISE_QUERY: &str =
-        "query($franchise: String!, $page: PositiveInt!, $limit: PositiveInt!) {
+    const ANIMES_BY_FRANCHISE_QUERY: &str = "query($franchise: String!, $page: PositiveInt!, $limit: PositiveInt!) {
   animes(franchise: $franchise, page: $page, limit: $limit) {
     id
     name

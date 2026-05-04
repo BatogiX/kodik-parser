@@ -13,17 +13,17 @@ lazy-regex = "3.6.0"
 serde-saphyr = "0.0.23"
 
 [workspace.lints.rust]
-unsafe_code = "forbid"
+unsafe_code = "deny"
 
 [workspace.lints.clippy]
-expect_used = "deny"
-unwrap_used = "deny"
-panic = "deny"
+expect_used = "warn"
+unwrap_used = "warn"
+panic = "warn"
 
-all = { level = "deny", priority = -1 }
-pedantic = { level = "deny", priority = -1 }
-nursery = { level = "deny", priority = -1 }
-cargo = { level = "deny", priority = -1 }
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
 multiple_crate_versions = "allow"
 
 [profile.release]

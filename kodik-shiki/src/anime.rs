@@ -1,7 +1,8 @@
+use crate::scraper::SearchResponse;
 use crate::{TranslationType, VideoResult};
 use crate::{parser, scraper};
 use kodik_utils::Error;
-use reqwest::Client;
+use reqwest::{Client, header};
 use serde::Deserialize;
 
 /// Retrieves video results for an anime from Kodik.
@@ -13,62 +14,53 @@ use serde::Deserialize;
 /// - The anime ID cannot be extracted from the URL
 /// - The Kodik API request fails
 /// - No matching video source is found
-pub async fn resolve_anime(
-    client: &Client,
-    url: &str,
-    with_cookie: bool,
-    translation_title: Option<&str>,
-    translation_type: Option<&TranslationType>,
-    episode: Option<usize>,
-) -> Result<VideoResult, Error> {
-    let domain = kodik_utils::extract_domain(url)?;
+pub async fn resolve_anime(client: &Client, url: &str) -> Result<SearchResponse, Error> {
     let id = parser::extract_id(url)?;
+    let search_response: SearchResponse = scraper::get_kodik_videos(client, id).await?;
 
-    let search_result = scraper::get_kodik_videos(client, id)
-        .await?
-        .find_search_result(translation_title, translation_type)?;
-
-    if let Some(seasons) = search_result.seasons {
-        let last_episode = if let Some(episode) = episode {
-            episode
-        } else if with_cookie
-            && let Ok(response) = kodik_utils::fetch_as_json::<Response>(
-                client,
-                &format!("https://{domain}/api/animes/{id}"),
-                kodik_utils::build_headers(domain)?,
-            )
-            .await
-            && let Some(user_rate) = response.user_rate
-        {
-            user_rate.episodes
-        } else {
-            0
-        };
-
-        let (_, season) = seasons
-            .into_iter()
-            .next_back()
-            .ok_or(Error::NotFound("no season found".to_string()))?;
-
-        let episodes = season
-            .episodes
-            .into_iter()
-            .skip(last_episode)
-            .map(|(_, ep)| ep)
-            .collect();
-
-        Ok(VideoResult::Episodes(episodes))
-    } else {
-        Ok(VideoResult::Film(search_result.link))
-    }
+    Ok(search_response)
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Response {
-    user_rate: Option<UserRate>,
+    pub franchise: Option<String>,
+    pub user_rate: Option<UserRate>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct UserRate {
     episodes: usize,
+}
+
+pub struct VideoMetaData {
+    video: VideoResult,
+    name: String,
+    episodes: Vec<usize>,
+}
+
+pub async fn fetch_user_rate(client: &Client, url: &str) -> Result<usize, Error> {
+    let domain = kodik_utils::extract_domain(url)?;
+    let id = parser::extract_id(url)?;
+    let url = format!("https://{domain}/api/animes/{id}");
+    let headers = kodik_utils::build_headers(domain)?;
+    let shiki_api_animes: ShikiApiAnimes = kodik_utils::fetch_as_json(client, &url, headers).await?;
+
+    Ok(shiki_api_animes.user_rate.map_or(0, |ur| ur.episodes))
+}
+
+#[derive(Debug, Deserialize)]
+struct ShikiApiAnimes {
+    // id: usize,
+    // name: String,
+    // russian: String,
+    // url: String,
+    // kind: String,
+    // score: String,
+    // status: String,
+    // episodes: usize,
+    // episodes_aired: usize,
+    // aired_on: String,
+    // released_on: String,
+    // rating: String,
+    user_rate: Option<UserRate>,
 }

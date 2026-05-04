@@ -32,10 +32,7 @@ impl Log for KodikLogger {
 
         match record.level() {
             Level::Error => eprintln!("{RED_BOLD}error:{RESET} {BOLD}{}{RESET}", record.args()),
-            Level::Warn => eprintln!(
-                "{YELLOW_BOLD}warning:{RESET} {BOLD}{}{RESET}",
-                record.args()
-            ),
+            Level::Warn => eprintln!("{YELLOW_BOLD}warning:{RESET} {BOLD}{}{RESET}", record.args()),
             Level::Info => eprintln!("{BLUE_BOLD}::{RESET} {BOLD}{}{RESET}", record.args()),
             Level::Debug => eprintln!("  {BLUE_BOLD}->{RESET} {}", record.args()),
             Level::Trace => eprintln!("{DIM}{}{RESET}", record.args()),

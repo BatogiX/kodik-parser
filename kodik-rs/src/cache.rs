@@ -41,11 +41,7 @@ impl Cache {
 
     pub fn save(&self) -> Option<()> {
         let cache_path = CACHE_PATH.as_ref()?;
-        let file = OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .open(cache_path)
-            .ok()?;
+        let file = OpenOptions::new().write(true).truncate(true).open(cache_path).ok()?;
         serde_json::to_writer_pretty(file, self).ok()
     }
 
@@ -55,8 +51,7 @@ impl Cache {
     }
 
     pub fn is_changed(&self) -> bool {
-        self.shift != Some(KODIK_STATE.shift())
-            || self.endpoint.as_deref() != Some(&*KODIK_STATE.endpoint())
+        self.shift != Some(KODIK_STATE.shift()) || self.endpoint.as_deref() != Some(&*KODIK_STATE.endpoint())
     }
 
     pub fn apply(&self) {

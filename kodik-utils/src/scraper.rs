@@ -35,11 +35,7 @@ pub fn build_headers(domain: &str) -> Result<HeaderMap, crate::Error> {
 /// - A network request fails.
 /// - The response body cannot be read as a string.
 /// - An invalid URL is provided (though `reqwest` usually handles this during `get`).
-pub async fn fetch_as_text(
-    client: &Client,
-    url: &str,
-    headers: HeaderMap,
-) -> Result<String, crate::Error> {
+pub async fn fetch_as_text(client: &Client, url: &str, headers: HeaderMap) -> Result<String, crate::Error> {
     log::info!("GET to {url}...");
     execute_text(client.get(url).headers(headers)).await
 }
@@ -91,12 +87,7 @@ where
 /// - A network request fails.
 /// - The response cannot be deserialized into the target type `T`.
 /// - An invalid URL is provided (though `reqwest` usually handles this during `post`).
-pub async fn post_json_as_json<T, J>(
-    client: &Client,
-    url: &str,
-    headers: HeaderMap,
-    json: &J,
-) -> Result<T, Error>
+pub async fn post_json_as_json<T, J>(client: &Client, url: &str, headers: HeaderMap, json: &J) -> Result<T, Error>
 where
     T: DeserializeOwned + Debug,
     J: Serialize + Sync + ?Sized,

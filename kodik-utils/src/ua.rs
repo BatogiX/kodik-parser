@@ -18,3 +18,16 @@ pub fn random_user_agent() -> &'static str {
 
     ua
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn random_agent_is_not_always_same() {
+        let a1 = random_user_agent();
+        let a2 = random_user_agent();
+        assert_ne!(a1, a2);
+    }
+}
