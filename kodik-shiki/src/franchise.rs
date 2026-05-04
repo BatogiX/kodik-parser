@@ -1,8 +1,7 @@
-use kodik_utils::Error;
+use crate::{Response, parser};
+use kodik_utils::{Error, GET, POST};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-
-use crate::{Response, parser};
 
 const LIMIT: usize = 50;
 
@@ -44,13 +43,7 @@ pub async fn resolve_franchise(client: &Client, url: &str) -> Result<(), Error> 
         };
         dbg!(&json);
 
-        let resp: FetchAnimesResponse = kodik_utils::post_json_as_json(
-            client,
-            &graphql_url,
-            kodik_utils::build_headers(kodik_utils::extract_domain(url)?)?,
-            &json,
-        )
-        .await?;
+        let resp: FetchAnimesResponse = client.post_json_as_json(&graphql_url, &json).await?;
 
         let len = resp.data.animes.len();
         accum.push(resp.data.animes);
@@ -89,12 +82,9 @@ impl<'a> FetchAnimesVars<'a> {
 }
 
 async fn fetch_franchise(client: &Client, domain: &str, id: &str) -> Result<Option<String>, Error> {
-    let shiki_resp = kodik_utils::fetch_as_json::<Response>(
-        client,
-        &format!("https://{domain}/api/animes/{id}"),
-        kodik_utils::build_headers(domain)?,
-    )
-    .await?;
+    let shiki_resp = client
+        .fetch_as_json::<Response>(&format!("https://{domain}/api/animes/{id}"))
+        .await?;
 
     Ok(shiki_resp.franchise)
 }
@@ -140,12 +130,7 @@ pub struct BasicAnime {
 }
 
 pub async fn get_not_anime_ids(client: &Client, neko_id: &str) -> Result<Option<Vec<usize>>, Error> {
-    let yaml_body = kodik_utils::fetch_as_text(
-        client,
-        "https://raw.githubusercontent.com/shikimori/neko-achievements/refs/heads/master/priv/rules/_franchises.yml",
-        kodik_utils::build_headers("raw.githubusercontent.com")?,
-    )
-    .await?;
+    let yaml_body = client.fetch_as_text("https://raw.githubusercontent.com/shikimori/neko-achievements/refs/heads/master/priv/rules/_franchises.yml").await?;
 
     let achievements: Achievements = serde_saphyr::from_str(&yaml_body)?;
 

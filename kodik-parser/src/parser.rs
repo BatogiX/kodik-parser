@@ -1,6 +1,6 @@
 use crate::decoder;
 use crate::{KODIK_STATE, Response};
-use kodik_utils::Error;
+use kodik_utils::{Error, GET, POST};
 use reqwest::Client;
 use serde::Serialize;
 
@@ -56,7 +56,7 @@ pub async fn parse(client: &Client, url: &str) -> Result<Response, Error> {
     } else {
         log::warn!("video info not found in '{url}', fetching from body...");
 
-        body = kodik_utils::fetch_as_text(client, url, kodik_utils::build_headers(domain)?).await?;
+        body = client.fetch_as_text(url).await?;
 
         VideoInfo::from_body(&body)?
     };
@@ -65,13 +65,9 @@ pub async fn parse(client: &Client, url: &str) -> Result<Response, Error> {
         let endpoint = KODIK_STATE.endpoint();
 
         if !endpoint.is_empty() {
-            if let Ok(mut kodik_response) = kodik_utils::post_form_as_json::<Response, VideoInfo>(
-                client,
-                &format!("https://{domain}{endpoint}"),
-                kodik_utils::build_headers(domain)?,
-                &video_info,
-            )
-            .await
+            if let Ok(mut kodik_response) = client
+                .post_form_as_json::<Response, VideoInfo>(&format!("https://{domain}{endpoint}"), &video_info)
+                .await
             {
                 kodik_response.decode_links()?;
                 return Ok(kodik_response);
@@ -79,25 +75,19 @@ pub async fn parse(client: &Client, url: &str) -> Result<Response, Error> {
             KODIK_STATE.clear_endpoint();
             continue;
         }
-
         if KODIK_STATE.try_begin_update() {
             log::warn!("Endpoint not found in cache, updating...");
             let fetched;
 
             let body = if body.is_empty() {
-                fetched = kodik_utils::fetch_as_text(client, url, kodik_utils::build_headers(domain)?).await?;
+                fetched = client.fetch_as_text(url).await?;
 
                 &fetched
             } else {
                 &body
             };
 
-            let player_body = kodik_utils::fetch_as_text(
-                client,
-                &extract_player_url(domain, body)?,
-                kodik_utils::build_headers(domain)?,
-            )
-            .await?;
+            let player_body = client.fetch_as_text(&extract_player_url(domain, body)?).await?;
 
             let new_endpoint = extract_endpoint(&player_body)?;
             KODIK_STATE.finish_update(new_endpoint);

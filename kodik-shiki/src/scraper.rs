@@ -3,14 +3,10 @@ use std::{
     fmt::{Debug, Display},
 };
 
-use kodik_utils::Error;
+use kodik_utils::{Error, GET, POST};
 use lazy_regex::{Regex, regex};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-
-use crate::parser::{self, extract_id};
-
-const LIMIT: usize = 50;
 
 #[derive(Debug)]
 pub enum VideoResult {
@@ -49,15 +45,14 @@ pub async fn get_kodik_videos(client: &Client, id: &str) -> Result<SearchRespons
     let url =
         format!("https://kodik-api.com/search?token={token}&shikimori_id={id}&with_seasons=true&with_episodes=true");
 
-    let headers = kodik_utils::build_headers("kodik-api.com")?;
-    let search_response: SearchResponse = kodik_utils::fetch_as_json(client, &url, headers).await?;
+    let search_response: SearchResponse = client.fetch_as_json(&url).await?;
 
     Ok(search_response)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct SearchResponse {
-    pub results: Vec<SearchResult>,
+    pub results: Results,
 }
 
 impl SearchResponse {
@@ -89,6 +84,8 @@ impl SearchResponse {
             .ok_or_else(|| Error::NotFound("no video sources found".to_string()))
     }
 }
+
+type Results = Vec<SearchResult>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct SearchResult {
@@ -190,13 +187,7 @@ pub async fn fetch_franchise(client: &Client, url: &str, ids: &str) -> Result<Op
         variables: FetchFranchiseVars { ids },
     };
 
-    let resp: FetchFranchiseResponse = kodik_utils::post_json_as_json(
-        client,
-        url,
-        kodik_utils::build_headers(kodik_utils::extract_domain(url)?)?,
-        &json,
-    )
-    .await?;
+    let resp: FetchFranchiseResponse = client.post_json_as_json(url, &json).await?;
 
     let first = resp.data.animes.into_iter().next();
     Ok(first.and_then(|a| a.franchise))
@@ -228,6 +219,7 @@ pub async fn fetch_animes_by_franchise(
     franchise: &str,
     page: usize,
 ) -> Result<FetchAnimesResponse, Error> {
+    const LIMIT: usize = 50;
     const ANIMES_BY_FRANCHISE_QUERY: &str = "query($franchise: String!, $page: PositiveInt!, $limit: PositiveInt!) {
   animes(franchise: $franchise, page: $page, limit: $limit) {
     id
@@ -262,13 +254,7 @@ pub async fn fetch_animes_by_franchise(
         },
     };
 
-    let resp: FetchAnimesResponse = kodik_utils::post_json_as_json(
-        client,
-        url,
-        kodik_utils::build_headers(kodik_utils::extract_domain(url)?)?,
-        &json,
-    )
-    .await?;
+    let resp: FetchAnimesResponse = client.post_json_as_json(url, &json).await?;
 
     Ok(resp)
 }
