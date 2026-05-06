@@ -130,14 +130,15 @@ async fn execute_json<T>(builder: RequestBuilder) -> Result<T, crate::Error>
 where
     T: DeserializeOwned + Debug,
 {
-    let resp = builder.header(ACCEPT, "application/json").send().await?;
+    let builder = builder.header(ACCEPT, "application/json");
+    let resp = execute(builder).await?;
     let data = resp.json::<T>().await?;
     log::trace!("Response data: {data:#?}");
     Ok(data)
 }
 
 async fn execute_text(builder: RequestBuilder) -> Result<String, crate::Error> {
-    let resp = builder.send().await?;
+    let resp = execute(builder).await?;
     let body = resp.text().await?;
     log::trace!("Response body: {body:#?}");
     Ok(body)
