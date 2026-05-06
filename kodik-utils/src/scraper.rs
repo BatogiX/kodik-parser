@@ -1,11 +1,12 @@
 use reqwest::{
-    Client, RequestBuilder,
-    header::{ACCEPT, HOST, HeaderMap, HeaderValue, USER_AGENT},
+    Client, RequestBuilder, Response, StatusCode,
+    header::{ACCEPT, ACCEPT_LANGUAGE, HeaderMap, HeaderName, HeaderValue, USER_AGENT},
 };
 use serde::{Serialize, de::DeserializeOwned};
-use std::{fmt::Debug, future::Future};
+use std::{fmt::Debug, future::Future, time::Duration};
+use tokio::time;
 
-use crate::{Error, extract_domain, ua};
+use crate::{Error, ua};
 
 pub trait POST {
     /// Posts data to the given URL and deserializes the response as JSON.
@@ -67,8 +68,7 @@ impl POST for Client {
         F: Serialize + Sync + ?Sized,
     {
         log::info!("POST to {url}...");
-        let headers = build_headers(extract_domain(url)?)?;
-        execute_json(self.post(url).form(form).headers(headers)).await
+        execute_json(self.post(url).form(form)).await
     }
 
     async fn post_json_as_json<T, J>(&self, url: &str, json: &J) -> Result<T, Error>
@@ -77,21 +77,18 @@ impl POST for Client {
         J: Serialize + Sync + ?Sized,
     {
         log::info!("POST to {url}...");
-        let headers = build_headers(extract_domain(url)?)?;
-        execute_json(self.post(url).json(json).headers(headers)).await
+        execute_json(self.post(url).json(json)).await
     }
 }
 impl GET for Client {
     async fn fetch_as_text(&self, url: &str) -> Result<String, crate::Error> {
         log::info!("GET to {url}...");
-        let headers = build_headers(extract_domain(url)?)?;
-        execute_text(self.get(url).headers(headers)).await
+        execute_text(self.get(url)).await
     }
 
     async fn fetch_as_json<T: DeserializeOwned + Debug>(&self, url: &str) -> Result<T, crate::Error> {
         log::info!("GET to {url}...");
-        let headers = build_headers(extract_domain(url)?)?;
-        execute_json(self.get(url).headers(headers)).await
+        execute_json(self.get(url)).await
     }
 }
 
@@ -107,12 +104,26 @@ impl GET for Client {
 /// Returns an [`Error`] if:
 /// - The `host` string cannot be converted into a valid `HeaderValue`.
 /// - The `with_cookie` string (if present) cannot be converted into a valid `HeaderValue`.
-fn build_headers(domain: &str) -> Result<HeaderMap, crate::Error> {
+fn build_headers() -> HeaderMap {
     let mut headers = HeaderMap::with_capacity(2);
-    headers.insert(HOST, HeaderValue::from_str(domain)?);
-    headers.insert(USER_AGENT, HeaderValue::from_str(ua::random_user_agent())?);
+    headers.insert(USER_AGENT, HeaderValue::from_static(ua::random_user_agent()));
+    headers.insert(ACCEPT_LANGUAGE, HeaderValue::from_static("en-US,en;q=0.9"));
+    headers.insert(HeaderName::from_static("dnt"), HeaderValue::from_static("1"));
+    headers.insert(HeaderName::from_static("sec-gpc"), HeaderValue::from_static("1"));
+    headers.insert(
+        HeaderName::from_static("upgrade-insecure-requests"),
+        HeaderValue::from_static("1"),
+    );
+    headers.insert(
+        HeaderName::from_static("sec-fetch-dest"),
+        HeaderValue::from_static("document"),
+    );
+    headers.insert(
+        HeaderName::from_static("sec-fetch-mode"),
+        HeaderValue::from_static("navigate"),
+    );
 
-    Ok(headers)
+    headers
 }
 
 async fn execute_json<T>(builder: RequestBuilder) -> Result<T, crate::Error>
@@ -130,4 +141,26 @@ async fn execute_text(builder: RequestBuilder) -> Result<String, crate::Error> {
     let body = resp.text().await?;
     log::trace!("Response body: {body:#?}");
     Ok(body)
+}
+
+async fn execute(builder: RequestBuilder) -> Result<Response, crate::Error> {
+    const MAX_ATTEMPTS: u8 = 5;
+
+    let headers = build_headers();
+    let builder = builder.headers(headers);
+
+    for attempt in 1..=MAX_ATTEMPTS {
+        let resp = builder.try_clone().expect("cannot clone builder").send().await?;
+
+        if resp.status() == StatusCode::TOO_MANY_REQUESTS {
+            let wait = Duration::from_secs((2_u64.pow(u32::from(attempt))).min(60));
+
+            log::warn!("429 Too Many Requests. Waiting {wait:?} before retrying...");
+
+            time::sleep(wait).await;
+        }
+    }
+
+    let resp = builder.send().await?;
+    Ok(resp)
 }

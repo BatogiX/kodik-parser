@@ -20,6 +20,7 @@ log.workspace = true
 lazy-regex.workspace = true
 serde-saphyr.workspace = true
 serde.workspace = true
+tokio = {workspace = true, features = ["time"]}
 
 [lints]
 workspace = true

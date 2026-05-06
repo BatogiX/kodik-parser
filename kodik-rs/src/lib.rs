@@ -39,7 +39,13 @@ pub async fn run_impl(args: Vec<String>) -> Result<(), Box<dyn Error>> {
     }
 
     let jar = Arc::new(config.load_cookies()?);
-    let client = Client::builder().cookie_provider(Arc::clone(&jar)).build()?;
+    let client = Client::builder()
+        .cookie_provider(Arc::clone(&jar))
+        .gzip(true)
+        .brotli(true)
+        .zstd(true)
+        .deflate(true)
+        .build()?;
 
     match config.execution_mode() {
         ExecutionMode::Parallel => todo!("paralel does not implemented yet"),
