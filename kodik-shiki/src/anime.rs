@@ -21,7 +21,19 @@ pub async fn resolve_anime(client: &Client, url: &str) -> Result<SearchResponse,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct Response {
+pub struct ShikiApiAnimes {
+    // id: usize,
+    // name: String,
+    // russian: String,
+    // url: String,
+    // kind: String,
+    // score: String,
+    // status: String,
+    // episodes: usize,
+    // episodes_aired: usize,
+    // aired_on: String,
+    // released_on: String,
+    // rating: String,
     pub franchise: Option<String>,
     pub user_rate: Option<UserRate>,
 }
@@ -44,21 +56,4 @@ pub async fn fetch_user_rate(client: &Client, url: &str) -> Result<Option<usize>
     let shiki_api_animes: ShikiApiAnimes = client.fetch_as_json(&url).await?;
 
     Ok(shiki_api_animes.user_rate.map(|ur| ur.episodes))
-}
-
-#[derive(Debug, Deserialize)]
-struct ShikiApiAnimes {
-    // id: usize,
-    // name: String,
-    // russian: String,
-    // url: String,
-    // kind: String,
-    // score: String,
-    // status: String,
-    // episodes: usize,
-    // episodes_aired: usize,
-    // aired_on: String,
-    // released_on: String,
-    // rating: String,
-    user_rate: Option<UserRate>,
 }

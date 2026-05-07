@@ -105,19 +105,23 @@ impl GET for Client {
 /// - The `host` string cannot be converted into a valid `HeaderValue`.
 /// - The `with_cookie` string (if present) cannot be converted into a valid `HeaderValue`.
 fn build_headers() -> HeaderMap {
-    let mut headers = HeaderMap::with_capacity(2);
+    let mut headers = HeaderMap::with_capacity(7);
+
     headers.insert(USER_AGENT, HeaderValue::from_static(ua::random_user_agent()));
     headers.insert(ACCEPT_LANGUAGE, HeaderValue::from_static("en-US,en;q=0.9"));
     headers.insert(HeaderName::from_static("dnt"), HeaderValue::from_static("1"));
     headers.insert(HeaderName::from_static("sec-gpc"), HeaderValue::from_static("1"));
+
     headers.insert(
         HeaderName::from_static("upgrade-insecure-requests"),
         HeaderValue::from_static("1"),
     );
+
     headers.insert(
         HeaderName::from_static("sec-fetch-dest"),
         HeaderValue::from_static("document"),
     );
+
     headers.insert(
         HeaderName::from_static("sec-fetch-mode"),
         HeaderValue::from_static("navigate"),
@@ -150,6 +154,8 @@ async fn execute(builder: RequestBuilder) -> Result<Response, crate::Error> {
     let headers = build_headers();
     let builder = builder.headers(headers);
 
+    log::trace!("builder: {builder:#?}");
+
     for attempt in 1..=MAX_ATTEMPTS {
         let resp = builder.try_clone().expect("cannot clone builder").send().await?;
 
@@ -159,6 +165,8 @@ async fn execute(builder: RequestBuilder) -> Result<Response, crate::Error> {
             log::warn!("429 Too Many Requests. Waiting {wait:?} before retrying...");
 
             time::sleep(wait).await;
+        } else {
+            return Ok(resp);
         }
     }
 

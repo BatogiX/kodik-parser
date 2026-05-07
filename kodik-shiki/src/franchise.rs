@@ -1,4 +1,4 @@
-use crate::{Response, parser};
+use crate::{ShikiApiAnimes, parser};
 use kodik_utils::{Error, GET, POST};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -43,10 +43,10 @@ pub async fn resolve_franchise(client: &Client, url: &str) -> Result<(), Error> 
         };
         dbg!(&json);
 
-        let resp: FetchAnimesResponse = client.post_json_as_json(&graphql_url, &json).await?;
+        let mut resp: FetchAnimesResponse = client.post_json_as_json(&graphql_url, &json).await?;
 
         let len = resp.data.animes.len();
-        accum.push(resp.data.animes);
+        accum.append(&mut resp.data.animes);
 
         if len < LIMIT {
             break;
@@ -83,7 +83,7 @@ impl<'a> FetchAnimesVars<'a> {
 
 async fn fetch_franchise(client: &Client, domain: &str, id: &str) -> Result<Option<String>, Error> {
     let shiki_resp = client
-        .fetch_as_json::<Response>(&format!("https://{domain}/api/animes/{id}"))
+        .fetch_as_json::<ShikiApiAnimes>(&format!("https://{domain}/api/animes/{id}"))
         .await?;
 
     Ok(shiki_resp.franchise)
@@ -130,6 +130,29 @@ pub struct BasicAnime {
 }
 
 pub async fn get_not_anime_ids(client: &Client, neko_id: &str) -> Result<Option<Vec<usize>>, Error> {
+    type Achievements = Vec<Achievement>;
+
+    #[derive(Deserialize)]
+    struct Achievement {
+        pub neko_id: String,
+        pub level: Level,
+        pub filters: Filters,
+    }
+
+    #[derive(Deserialize, PartialEq, Eq)]
+    enum Level {
+        #[serde(alias = "0")]
+        Zero,
+        #[serde(alias = "1")]
+        One,
+    }
+
+    #[derive(Deserialize)]
+    struct Filters {
+        pub franchise: String,
+        pub not_anime_ids: Option<Vec<usize>>,
+    }
+
     let yaml_body = client.fetch_as_text("https://raw.githubusercontent.com/shikimori/neko-achievements/refs/heads/master/priv/rules/_franchises.yml").await?;
 
     let achievements: Achievements = serde_saphyr::from_str(&yaml_body)?;
@@ -138,29 +161,6 @@ pub async fn get_not_anime_ids(client: &Client, neko_id: &str) -> Result<Option<
         .into_iter()
         .find(|ach| ach.level == Level::One && ach.neko_id == neko_id)
         .and_then(|ach| ach.filters.not_anime_ids))
-}
-
-type Achievements = Vec<Achievement>;
-
-#[derive(Debug, Deserialize)]
-struct Achievement {
-    pub neko_id: String,
-    pub level: Level,
-    pub filters: Filters,
-}
-
-#[derive(Debug, Deserialize, PartialEq, Eq)]
-pub enum Level {
-    #[serde(alias = "0")]
-    Zero,
-    #[serde(alias = "1")]
-    One,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Filters {
-    pub franchise: String,
-    pub not_anime_ids: Option<Vec<usize>>,
 }
 
 #[cfg(test)]

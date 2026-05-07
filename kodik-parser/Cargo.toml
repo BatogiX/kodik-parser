@@ -12,14 +12,14 @@ categories.workspace = true
 readme = "README.md"
 
 [dependencies]
-kodik-utils = { version = "0.1", path = "../kodik-utils" }
+kodik-utils = { workspace = true }
 serde = { workspace = true, features = ["rc"] }
 log.workspace = true
 tokio.workspace = true
 reqwest.workspace = true
 base64.workspace = true
 lazy-regex.workspace = true
-arc-swap = { version = "1.9", default-features = false }
+arc-swap = { workspace = true }
 
 [dev-dependencies]
 serde_json.workspace = true
