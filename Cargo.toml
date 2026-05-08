@@ -29,6 +29,7 @@ clap = "4.6"
 dirs = "6.0"
 thiserror = "2.0"
 mpv-client = { path = '..\mpv-client\mpv-client' }
+anyhow = "1.0.102"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

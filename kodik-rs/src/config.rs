@@ -1,9 +1,9 @@
 use std::{
-    error::Error,
     fs::File,
     io::{BufRead, BufReader},
 };
 
+use anyhow::{Context, Result};
 use clap::{ArgAction, Parser, ValueEnum, builder::styling};
 use kodik_shiki::TranslationType;
 use log::LevelFilter;
@@ -84,7 +84,7 @@ impl Config {
         }
     }
 
-    pub fn load_cookies(&self) -> Result<Jar, Box<dyn Error>> {
+    pub fn load_cookies(&self) -> Result<Jar> {
         let jar = Jar::default();
 
         if let Some(cookies) = self.cookies.as_deref() {
@@ -102,9 +102,9 @@ impl Config {
 
                 let mut parts = trimmed.splitn(7, '\t');
 
-                let domain = parts.next().ok_or("malformed cookie: missing domain")?;
-                let key = parts.nth(4).ok_or("malformed cookie: missing name")?;
-                let value = parts.next().ok_or("malformed cookie: missing value")?;
+                let domain = parts.next().context("malformed cookie: missing domain")?;
+                let key = parts.nth(4).context("malformed cookie: missing name")?;
+                let value = parts.next().context("malformed cookie: missing value")?;
 
                 let mut cookie = String::with_capacity(key.len() + value.len() + domain.len() + 10);
                 cookie.push_str(key);
