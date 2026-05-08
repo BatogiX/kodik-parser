@@ -63,8 +63,15 @@ pub async fn run_impl(args: Vec<String>) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+async fn parse_link(client: &Client, url: &str, quality: &Quality) -> Result<String, Box<dyn Error + Send + Sync>> {
+    let kodik_response = kodik_parser::parse(client, url).await?;
+    get_link(&kodik_response, quality)
+        .ok_or_else(|| "no playable links found for this video".into())
+        .map(|s| s.to_owned())
+}
+
 async fn run_parallel(client: &Client, config: Arc<Config>, jar: Arc<Jar>) -> Result<(), Box<dyn Error>> {
-    let mut handles: Vec<JoinHandle<Result<Vec<String>, Box<dyn Error + Send + Sync + 'static>>>> = Vec::new();
+    let mut handles: Vec<JoinHandle<Result<Vec<String>, Box<dyn Error + Send + Sync>>>> = Vec::new();
 
     for url in config.urls.iter().cloned() {
         let client = client.clone();
@@ -72,24 +79,24 @@ async fn run_parallel(client: &Client, config: Arc<Config>, jar: Arc<Jar>) -> Re
         let jar = Arc::clone(&jar);
 
         let handle = tokio::spawn(async move {
-            let mut parse_handles: Vec<JoinHandle<Result<String, Box<dyn Error + Send + Sync + 'static>>>> = Vec::new();
+            let mut urls_to_parse = Vec::new();
 
             let mut collect =
                 |url_str: &str, _title: Option<String>, _episode: Option<usize>| -> Result<(), Box<dyn Error>> {
-                    let client = client.clone();
-                    let config = Arc::clone(&config);
-                    let url_str = url_str.to_string();
-                    let handle = tokio::spawn(async move {
-                        let kodik_response = kodik_parser::parse(&client, &url_str).await?;
-                        let link = get_link(&kodik_response, &config.quality)
-                            .ok_or("no playable links found for this video")?;
-                        Ok::<_, Box<dyn Error + Send + Sync + 'static>>(link.to_owned())
-                    });
-                    parse_handles.push(handle);
+                    urls_to_parse.push(url_str.to_string());
                     Ok(())
                 };
 
             let _ = resolve_url(&client, &url, config.as_ref(), &jar, &mut collect).await;
+
+            let mut parse_handles: Vec<JoinHandle<Result<String, Box<dyn Error + Send + Sync>>>> = Vec::new();
+            for url_str in urls_to_parse {
+                let client = client.clone();
+                let quality = config.quality;
+                parse_handles.push(tokio::spawn(
+                    async move { parse_link(&client, &url_str, &quality).await },
+                ));
+            }
 
             let mut links = Vec::new();
             for handle in parse_handles {
@@ -118,47 +125,47 @@ async fn run_parallel(client: &Client, config: Arc<Config>, jar: Arc<Jar>) -> Re
     Ok(())
 }
 
-async fn run_lazy(client: &Client, config: &Config, jar: Arc<Jar>) -> Result<(), Box<dyn Error>> {
-    fn spawn_player(player: &str, link: &str, title: Option<&str>, episode: Option<usize>) -> Result<(), String> {
-        let mut parts = player.split_whitespace();
-        let program = parts.next().ok_or("empty player")?;
+fn spawn_player(player: &str, link: &str, title: Option<&str>, episode: Option<usize>) -> Result<(), String> {
+    let mut parts = player.split_whitespace();
+    let program = parts.next().ok_or("empty player")?;
 
-        let program = if cfg!(target_os = "windows") && program == "mpv" {
-            "mpv.com"
-        } else {
-            program
-        };
+    let program = if cfg!(target_os = "windows") && program == "mpv" {
+        "mpv.com"
+    } else {
+        program
+    };
 
-        let mut video_title = String::new();
-        if let Some(title) = title {
-            video_title.push_str(title);
+    let mut video_title = String::new();
+    if let Some(title) = title {
+        video_title.push_str(title);
 
-            if let Some(episode) = episode {
-                let _ = write!(video_title, " — Episode {episode}");
-            }
+        if let Some(episode) = episode {
+            let _ = write!(video_title, " — Episode {episode}");
         }
-
-        let mut cmd = Command::new(program);
-        cmd.args(parts);
-
-        if !video_title.is_empty() && (program == "mpv" || program == "mpv.com") {
-            cmd.arg(format!("--title={video_title}"));
-        }
-
-        cmd.arg(link)
-            .stdin(Stdio::null())
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit());
-
-        let mut child = cmd
-            .spawn()
-            .map_err(|e| format!("failed to spawn player '{program}': {e}"))?;
-        child
-            .wait()
-            .map(|_| ())
-            .map_err(|e| format!("player '{program}' failed: {e}"))
     }
 
+    let mut cmd = Command::new(program);
+    cmd.args(parts);
+
+    if !video_title.is_empty() && (program == "mpv" || program == "mpv.com") {
+        cmd.arg(format!("--title={video_title}"));
+    }
+
+    cmd.arg(link)
+        .stdin(Stdio::null())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("failed to spawn player '{program}': {e}"))?;
+    child
+        .wait()
+        .map(|_| ())
+        .map_err(|e| format!("player '{program}' failed: {e}"))
+}
+
+async fn run_lazy(client: &Client, config: &Config, jar: Arc<Jar>) -> Result<(), Box<dyn Error>> {
     let stdout = io::stdout();
     let mut out = BufWriter::new(stdout.lock());
 
