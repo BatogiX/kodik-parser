@@ -72,17 +72,31 @@ async fn run_parallel(client: &Client, config: Arc<Config>, jar: Arc<Jar>) -> Re
         let jar = Arc::clone(&jar);
 
         let handle = tokio::spawn(async move {
+            let mut parse_handles: Vec<JoinHandle<Result<String, Box<dyn Error + Send + Sync + 'static>>>> = Vec::new();
+
+            let mut collect =
+                |url_str: &str, _title: Option<String>, _episode: Option<usize>| -> Result<(), Box<dyn Error>> {
+                    let client = client.clone();
+                    let config = Arc::clone(&config);
+                    let url_str = url_str.to_string();
+                    let handle = tokio::spawn(async move {
+                        let kodik_response = kodik_parser::parse(&client, &url_str).await?;
+                        let link = get_link(&kodik_response, &config.quality)
+                            .ok_or("no playable links found for this video")?;
+                        Ok::<_, Box<dyn Error + Send + Sync + 'static>>(link.to_owned())
+                    });
+                    parse_handles.push(handle);
+                    Ok(())
+                };
+
+            let _ = resolve_url(&client, &url, config.as_ref(), &jar, &mut collect).await;
+
             let mut links = Vec::new();
-
-            let mut collect = |kodik_response, _title, _episode| -> Result<(), Box<dyn Error>> {
-                let link =
-                    get_link(&kodik_response, &config.quality).ok_or("no playable links found for this video")?;
-
-                links.push(link.to_owned());
-                Ok(())
-            };
-
-            resolve_url(&client, &url, config.as_ref(), &jar, &mut collect).await;
+            for handle in parse_handles {
+                if let Ok(Ok(link)) = handle.await {
+                    links.push(link);
+                }
+            }
 
             Ok(links)
         });
@@ -94,18 +108,12 @@ async fn run_parallel(client: &Client, config: Arc<Config>, jar: Arc<Jar>) -> Re
     let mut out = BufWriter::new(stdout.lock());
 
     for handle in handles {
-        let links = handle.await?.unwrap();
-
-        for link in links {
-            writeln!(out, "{link}")?;
+        if let Ok(Ok(links)) = handle.await {
+            for link in links {
+                writeln!(out, "{link}")?;
+            }
         }
     }
-
-    // for links in results {
-    //     for link in links {
-    //         writeln!(handle, "{link}")?;
-    //     }
-    // }
 
     Ok(())
 }
@@ -152,22 +160,31 @@ async fn run_lazy(client: &Client, config: &Config, jar: Arc<Jar>) -> Result<(),
     }
 
     let stdout = io::stdout();
-    let mut handle = BufWriter::new(stdout.lock());
-
-    let mut clos = |kodik_response, title: Option<String>, episode| -> Result<(), Box<dyn Error>> {
-        let link = get_link(&kodik_response, &config.quality).ok_or("no playable links found for this video")?;
-
-        if let Some(player) = &config.player {
-            spawn_player(player, link, title.as_deref(), episode)?;
-        } else {
-            writeln!(handle, "{link}")?;
-        }
-
-        Ok(())
-    };
+    let mut out = BufWriter::new(stdout.lock());
 
     for url in &config.urls {
-        resolve_url(client, url, config, &jar, &mut clos).await?
+        let mut resolved = Vec::new();
+
+        {
+            let mut collect =
+                |url_str: &str, title: Option<String>, episode: Option<usize>| -> Result<(), Box<dyn Error>> {
+                    resolved.push((url_str.to_owned(), title, episode));
+                    Ok(())
+                };
+
+            resolve_url(client, url, config, &jar, &mut collect).await?;
+        }
+
+        for (url_str, title, episode) in resolved {
+            let kodik_response = kodik_parser::parse(client, &url_str).await?;
+            let link = get_link(&kodik_response, &config.quality).ok_or("no playable links found for this video")?;
+
+            if let Some(player) = &config.player {
+                spawn_player(player, link, title.as_deref(), episode)?;
+            } else {
+                writeln!(out, "{link}")?;
+            }
+        }
     }
 
     Ok(())
@@ -191,7 +208,7 @@ async fn resolve_url<F>(
     inner: &mut F,
 ) -> Result<(), Box<dyn Error>>
 where
-    F: FnMut(kodik_parser::Response, Option<String>, Option<usize>) -> Result<(), Box<dyn Error>>,
+    F: FnMut(&str, Option<String>, Option<usize>) -> Result<(), Box<dyn Error>>,
 {
     match url
         .host_str()
@@ -218,21 +235,13 @@ where
                 Some(seasons) => {
                     let (_, season) = seasons.iter().next_back().ok_or("season not found")?;
                     for (episode_number, episode) in season.episodes.iter().skip(skip) {
-                        inner(
-                            kodik_parser::parse(client, episode).await?,
-                            Some(search_result.title.clone()),
-                            Some(*episode_number),
-                        )?;
+                        inner(episode, Some(search_result.title.clone()), Some(*episode_number))?;
                     }
                 }
-                None => inner(
-                    kodik_parser::parse(client, &search_result.link).await?,
-                    Some(search_result.title.clone()),
-                    None,
-                )?,
+                None => inner(&search_result.link, Some(search_result.title.clone()), None)?,
             }
         }
-        "kodikplayer" => inner(kodik_parser::parse(client, url.as_str()).await?, None, None)?,
+        "kodikplayer" => inner(url.as_str(), None, None)?,
         _ => return Err(format!("url '{url}' is not supported").into()),
     }
 
