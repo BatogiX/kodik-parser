@@ -104,9 +104,8 @@ async fn run_parallel(client: &Client, config: Arc<Config>, jar: Arc<Jar>) -> cr
 
     let mut all_links = Vec::new();
     for handle in handles {
-        if let Ok(Ok(links)) = handle.await {
-            all_links.extend(links);
-        }
+        let links = handle.await??;
+        all_links.extend(links);
     }
 
     let mut stdout = BufWriter::new(io::stdout());

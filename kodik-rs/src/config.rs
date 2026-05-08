@@ -22,11 +22,11 @@ pub struct Config {
     #[arg(value_name = "URL", required = true)]
     pub urls: Vec<Url>,
 
-    /// Outputs one by one (turns off parallelism)
+    /// Output sequentially; disables parallelism
     #[arg(short = 'l', long)]
     pub lazy: bool,
 
-    /// Specify media player (implies --lazy)
+    /// Media player to open URLs with (implies --lazy)
     #[arg(short = 'p', long, value_name = "MEDIA-PLAYER")]
     pub player: Option<String>,
 
@@ -55,8 +55,8 @@ pub struct Config {
     pub cookies: Option<String>,
 
     /// Expand a media database URL into all related URLs
-    #[arg(long, value_name = "MODE", default_value = "none")]
-    pub related_mode: RelatedMode,
+    #[arg(long, value_name = "MODE")]
+    pub related_mode: Option<RelatedMode>,
 }
 
 impl Config {
@@ -164,11 +164,9 @@ impl From<TranslationTypeArg> for TranslationType {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, ValueEnum)]
+#[derive(Debug, Clone, Copy, ValueEnum)]
 #[non_exhaustive]
 pub enum RelatedMode {
-    #[default]
-    None,
     #[value(name = "all")]
     All,
     #[value(name = "essential")]
