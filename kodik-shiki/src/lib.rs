@@ -3,7 +3,6 @@
 // mod tests;
 
 mod anime;
-mod franchise;
 pub(crate) mod parser;
 mod related;
 pub(crate) mod scraper;

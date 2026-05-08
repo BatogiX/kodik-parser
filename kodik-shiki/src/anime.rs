@@ -1,9 +1,7 @@
 use crate::VideoResult;
 use crate::scraper::SearchResponse;
 use crate::{parser, scraper};
-use kodik_utils::Error;
-use kodik_utils::GET;
-use reqwest::Client;
+use kodik_utils::{Client, Error, GET};
 use serde::Deserialize;
 
 /// Retrieves video results for an anime from Kodik.

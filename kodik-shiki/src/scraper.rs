@@ -3,9 +3,8 @@ use std::{
     fmt::{Debug, Display},
 };
 
-use kodik_utils::{Error, GET, POST};
+use kodik_utils::{Client, Error, GET, POST};
 use lazy_regex::{Regex, regex};
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
@@ -62,7 +61,7 @@ impl SearchResponse {
         translation_type: Option<&TranslationType>,
     ) -> Result<&SearchResult, Error> {
         if let Some(translation_title) = translation_title {
-            let title_re = Regex::new(&format!(r"(?i).*{}.*", regex::escape(translation_title)))?;
+            let title_re = Regex::new(&format!(r"(?i).*{translation_title}.*"))?;
 
             if let Some(result) = self.results.iter().find(|r| title_re.is_match(&r.translation.title)) {
                 log::info!("Found translation title '{}'", result.translation.title);

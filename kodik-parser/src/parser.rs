@@ -1,7 +1,6 @@
 use crate::decoder;
 use crate::{KODIK_STATE, Response};
-use kodik_utils::{Error, GET, POST};
-use reqwest::Client;
+use kodik_utils::{Client, Error, GET, POST};
 use serde::Serialize;
 
 /// Parses a Kodik player page asynchronously and returns structured video stream information.

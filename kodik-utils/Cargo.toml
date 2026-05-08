@@ -14,13 +14,13 @@ readme.workspace = true
 [dependencies]
 thiserror = { workspace = true }
 ua_generator = { workspace = true }
-reqwest.workspace = true
+reqwest = { workspace = true, features = ["json", "form"] }
 base64.workspace = true
 log.workspace = true
 lazy-regex.workspace = true
 serde-saphyr.workspace = true
 serde.workspace = true
-tokio = {workspace = true, features = ["time"]}
+tokio = { workspace = true, features = ["time"] }
 
 [lints]
 workspace = true

@@ -18,9 +18,9 @@ kodik-utils = { version = "0.1", path = "kodik-utils" }
 ua_generator = "0.5"
 serde = { version = "1.0.228", features = ["derive"] }
 log = "0.4.29"
-tokio = { version = "1.52.2", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.52.2", features = ["macros"] }
 serde_json = "1.0.149"
-reqwest = { version = "0.13.3", features = ["json", "form"] }
+reqwest = "0.13.3"
 base64 = "0.22.1"
 lazy-regex = "3.6.0"
 serde-saphyr = "0.0.26"
@@ -38,7 +38,6 @@ expect_used = "warn"
 unwrap_used = "warn"
 panic = "warn"
 multiple_crate_versions = "allow"
-
 all = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
