@@ -1,7 +1,4 @@
 use kodik_utils::Error;
-use lazy_regex::{Regex, regex};
-
-use crate::{TranslationType, scraper::SearchResult};
 
 pub fn extract_id(url: &str) -> Result<&str, Error> {
     let id_re = lazy_regex::regex!(r"/animes?/(?:[a-z])?([0-9]+)(?:-|$|/)");

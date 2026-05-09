@@ -1,10 +1,10 @@
-use crate::{ShikiApiAnimes, parser};
+use crate::{Anime, FetchAnimesResponse, FetchAnimesVars, GraphQLRequest, fetch_shiki_api_animes, parser};
 use kodik_utils::{Client, Error, GET as _, POST as _};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 const LIMIT: usize = 50;
 
-pub async fn resolve_franchise(client: &Client, url: &str) -> Result<(), Error> {
+pub async fn fetch_franchise(client: &Client, url: &str) -> Result<Vec<Anime>, Error> {
     const ANIMES_BY_FRANCHISE_QUERY: &str = "query($franchise: String!, $page: PositiveInt!, $limit: PositiveInt!) {
   animes(franchise: $franchise, page: $page, limit: $limit) {
     id
@@ -32,7 +32,7 @@ pub async fn resolve_franchise(client: &Client, url: &str) -> Result<(), Error> 
     let domain = kodik_utils::extract_domain(url)?;
     let graphql_url = format!("https://{domain}/api/graphql");
     let id = parser::extract_id(url)?;
-    let franchise = fetch_franchise(client, domain, id).await?.unwrap();
+    let franchise = fetch_shiki_api_animes(client, url).await?.franchise.unwrap();
 
     let mut accum = vec![];
     for page in 1.. {
@@ -52,80 +52,7 @@ pub async fn resolve_franchise(client: &Client, url: &str) -> Result<(), Error> 
         }
     }
 
-    dbg!(accum);
-
-    Ok(())
-}
-
-#[derive(Debug, Serialize)]
-pub struct GraphQLRequest<V> {
-    pub query: &'static str,
-    pub variables: V,
-}
-
-#[derive(Debug, Serialize)]
-pub struct FetchAnimesVars<'a> {
-    pub franchise: &'a str,
-    pub page: usize,
-    pub limit: usize,
-}
-
-impl<'a> FetchAnimesVars<'a> {
-    fn new(franchise: &'a str, page: usize) -> Self {
-        Self {
-            franchise,
-            page,
-            limit: LIMIT,
-        }
-    }
-}
-
-async fn fetch_franchise(client: &Client, domain: &str, id: &str) -> Result<Option<String>, Error> {
-    let shiki_resp = client
-        .fetch_as_json::<ShikiApiAnimes>(&format!("https://{domain}/api/animes/{id}"))
-        .await?;
-
-    Ok(shiki_resp.franchise)
-}
-
-#[derive(Deserialize, Debug)]
-pub struct FetchAnimesResponse {
-    pub data: FetchAnimesData,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct FetchAnimesData {
-    pub animes: Vec<DetailedAnime>,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct DetailedAnime {
-    pub id: String,
-    pub name: String,
-    pub episodes: usize,
-    pub franchise: Option<String>,
-    pub related: Vec<Relation>,
-    pub user_rate: Option<UserRate>,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct Relation {
-    pub relation_kind: String,
-    pub anime: Option<BasicAnime>,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct UserRate {
-    pub status: String,
-    pub anime: BasicAnime,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct BasicAnime {
-    pub id: Option<String>,
-    pub name: String,
+    Ok(accum)
 }
 
 pub async fn get_not_anime_ids(client: &Client, neko_id: &str) -> Result<Option<Vec<usize>>, Error> {
@@ -168,9 +95,9 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn resolve_franchise_test() {
+    async fn fetch_franchise_test() {
         let client = Client::new();
         let url = "https://shikimori.net/animes/33";
-        resolve_franchise(&client, url).await.unwrap();
+        dbg!(fetch_franchise(&client, url).await.unwrap());
     }
 }

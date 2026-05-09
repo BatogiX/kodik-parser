@@ -174,30 +174,7 @@ where
         .with_context(|| format!("url '{url}' is not supported"))?
         .0
     {
-        "shikimori" => {
-            let search_response = kodik_shiki::resolve_anime(client, url.as_str()).await?;
-
-            let search_result = search_response.find_search_result(
-                config.translation_title.as_deref(),
-                config.translation_type.map(TranslationType::from).as_ref(),
-            )?;
-
-            let skip = if jar.cookies(url).is_some() {
-                kodik_shiki::fetch_user_rate(client, url.as_str()).await?.unwrap_or(0)
-            } else {
-                0
-            };
-
-            match &search_result.seasons {
-                Some(seasons) => {
-                    let (_, season) = seasons.iter().next_back().context("season not found")?;
-                    for (episode_number, episode) in season.episodes.iter().skip(skip) {
-                        fun(episode, Some(search_result.title.clone()), Some(*episode_number))?;
-                    }
-                }
-                None => fun(&search_result.link, Some(search_result.title.clone()), None)?,
-            }
-        }
+        "shikimori" => resolve_shiki(client, url, config, jar, fun).await?,
         "kodikplayer" => fun(url.as_str(), None, None)?,
         _ => bail!("url '{url}' is not supported"),
     }
@@ -237,4 +214,74 @@ fn spawn_player(player: &str, link: &str, title: Option<&str>, episode: Option<u
         .wait()
         .map(|_| ())
         .with_context(|| format!("player '{program}' failed"))
+}
+
+async fn resolve_shiki<F>(client: &Client, url: &Url, config: &Config, jar: &Jar, fun: &mut F) -> Result<()>
+where
+    F: FnMut(&str, Option<String>, Option<usize>) -> Result<()>,
+{
+    if let Some(mode) = &config.related_mode {
+        let related = kodik_shiki::fetch_franchise(client, url.as_str()).await?;
+    } else {
+        let shiki_api_animes = if jar.cookies(url).is_some() || config.player.is_some() {
+            Some(kodik_shiki::fetch_shiki_api_animes(client, url.as_str()).await?)
+        } else {
+            None
+        };
+
+        let search_response = kodik_shiki::resolve_anime(client, url.as_str()).await?;
+
+        let search_result = search_response.find_search_result(
+            config.translation_title.as_deref(),
+            config.translation_type.map(TranslationType::from).as_ref(),
+        )?;
+
+        let skip = shiki_api_animes.as_ref().map_or_else(
+            || {
+                log::warn!("cookies not found for: {url}, defaulting to first episode");
+                0
+            },
+            |shiki_api_animes| {
+                shiki_api_animes.user_rate.as_ref().map_or_else(
+                    || {
+                        log::warn!("user rate not found for: {url}, defaulting to first episode");
+                        0
+                    },
+                    |user_rate| user_rate.episodes,
+                )
+            },
+        );
+
+        if let Some(seasons) = &search_result.seasons {
+            let (_, season) = seasons.iter().next_back().context("season not found")?;
+            for (episode_number, episode) in season.episodes.iter().skip(skip) {
+                if config.player.is_some() {
+                    if let Some(ref shiki_api_animes) = shiki_api_animes {
+                        fun(episode, Some(shiki_api_animes.name.clone()), Some(*episode_number))?;
+                    } else {
+                        fun(episode, Some(search_result.title.clone()), Some(*episode_number))?;
+                    }
+                } else {
+                    fun(episode, None, None)?;
+                }
+            }
+        } else {
+            if skip > 0 {
+                return Ok(());
+            }
+
+            let episode = &search_result.link;
+            if config.player.is_some() {
+                if let Some(ref shiki_api_animes) = shiki_api_animes {
+                    fun(episode, Some(shiki_api_animes.name.clone()), None)?;
+                } else {
+                    fun(episode, Some(search_result.title.clone()), None)?;
+                }
+            } else {
+                fun(episode, None, None)?;
+            }
+        }
+    }
+
+    Ok(())
 }

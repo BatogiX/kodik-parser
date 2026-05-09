@@ -3,9 +3,14 @@
 // mod tests;
 
 mod anime;
+mod error;
+mod models;
 pub(crate) mod parser;
 mod related;
 pub(crate) mod scraper;
 
-pub use anime::{ShikiApiAnimes, UserRate, fetch_user_rate, resolve_anime};
-pub use scraper::{TranslationType, VideoResult};
+pub use anime::{fetch_shiki_api_animes, fetch_user_rate, resolve_anime};
+pub use related::fetch_franchise;
+pub use scraper::VideoResult;
+
+pub use models::*;
