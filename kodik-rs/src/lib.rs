@@ -220,15 +220,21 @@ async fn resolve_shiki<F>(client: &Client, url: &Url, config: &Config, jar: &Jar
 where
     F: FnMut(&str, Option<String>, Option<usize>) -> Result<()>,
 {
+    let has_cookies = jar.cookies(url).is_some();
+
+    if config.cookies.is_some() && !has_cookies {
+        log::warn!("cookies not found for: {url}");
+    }
+
+    let shiki_api_animes = if has_cookies || config.player.is_some() {
+        Some(kodik_shiki::fetch_shiki_api_animes(client, url.as_str()).await?)
+    } else {
+        None
+    };
+
     if let Some(mode) = &config.related_mode {
         let related = kodik_shiki::fetch_franchise(client, url.as_str()).await?;
     } else {
-        let shiki_api_animes = if jar.cookies(url).is_some() || config.player.is_some() {
-            Some(kodik_shiki::fetch_shiki_api_animes(client, url.as_str()).await?)
-        } else {
-            None
-        };
-
         let search_response = kodik_shiki::resolve_anime(client, url.as_str()).await?;
 
         let search_result = search_response.find_search_result(
@@ -236,21 +242,15 @@ where
             config.translation_type.map(TranslationType::from).as_ref(),
         )?;
 
-        let skip = shiki_api_animes.as_ref().map_or_else(
-            || {
-                log::warn!("cookies not found for: {url}, defaulting to first episode");
-                0
-            },
-            |shiki_api_animes| {
-                shiki_api_animes.user_rate.as_ref().map_or_else(
-                    || {
-                        log::warn!("user rate not found for: {url}, defaulting to first episode");
-                        0
-                    },
-                    |user_rate| user_rate.episodes,
-                )
-            },
-        );
+        let skip = shiki_api_animes.as_ref().map_or(0, |shiki_api_animes| {
+            shiki_api_animes.user_rate.as_ref().map_or_else(
+                || {
+                    log::warn!("user rate not found for: {url}, defaulting to first episode");
+                    0
+                },
+                |user_rate| user_rate.episodes,
+            )
+        });
 
         if let Some(seasons) = &search_result.seasons {
             let (_, season) = seasons.iter().next_back().context("season not found")?;
