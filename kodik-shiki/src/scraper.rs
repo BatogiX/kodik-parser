@@ -1,7 +1,6 @@
 use std::fmt::Debug;
 
-use kodik_utils::{Client, Error, GET, POST};
-use serde::Deserialize;
+use kodik_utils::{Client, Error, GET};
 
 use crate::KodikApiResponse;
 

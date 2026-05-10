@@ -1,6 +1,5 @@
 use crate::{KodikApiResponse, ShikiApiAnimes, VideoResult, parser, scraper};
 use kodik_utils::{Client, Error, GET};
-use serde::Deserialize;
 
 /// Retrieves video results for an anime from Kodik.
 ///

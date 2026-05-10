@@ -226,14 +226,34 @@ where
         log::warn!("cookies not found for: {url}");
     }
 
-    let shiki_api_animes = if has_cookies || config.player.is_some() {
+    let shiki_api_animes = if has_cookies || config.player.is_some() || config.related_mode.is_some() {
         Some(kodik_shiki::fetch_shiki_api_animes(client, url.as_str()).await?)
     } else {
         None
     };
 
-    if let Some(mode) = &config.related_mode {
-        let related = kodik_shiki::fetch_franchise(client, url.as_str()).await?;
+    if let Some(ref _mode) = config.related_mode {
+        if let Some(shiki_api_animes) = shiki_api_animes.as_ref() {
+            let franchise = shiki_api_animes
+                .franchise
+                .as_ref()
+                .context("no related animes")?
+                .as_str();
+
+            let domain = url.domain().context("url have no domain")?;
+            let mut related = kodik_shiki::fetch_related(client, franchise, domain).await?;
+
+            let not_anime_ids = kodik_shiki::fetch_not_anime_ids(client, franchise)
+                .await?
+                .context("there are no 'not anime ids (just log::warn)'")?;
+
+            related.filter_by_not_anime_ids(&not_anime_ids)?;
+            related.sort_by_chrono();
+
+            for anime in &related.animes {
+                println!("{}", anime.name);
+            }
+        }
     } else {
         let search_response = kodik_shiki::resolve_anime(client, url.as_str()).await?;
 

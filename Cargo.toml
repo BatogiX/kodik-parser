@@ -16,9 +16,9 @@ kodik-utils = { version = "0.1", path = "kodik-utils" }
 
 # members deps
 ua_generator = "0.5"
-serde = { version = "1.0", features = ["derive"] }
+serde = "1.0"
 log = "0.4"
-tokio = { version = "1.52", features = ["macros"] }
+tokio = "1.52"
 serde_json = "1.0"
 reqwest = "0.13"
 base64 = "0.22"
@@ -28,8 +28,8 @@ arc-swap = "1.9"
 clap = "4.6"
 dirs = "6.0"
 thiserror = "2.0"
-mpv-client = { path = '..\mpv-client\mpv-client' }
 anyhow = "1.0"
+mpv-client = { path = '..\mpv-client\mpv-client' }
 
 [workspace.lints.rust]
 unsafe_code = "deny"

@@ -15,7 +15,7 @@ readme = "README.md"
 kodik-utils = { workspace = true }
 serde = { workspace = true, features = ["rc"] }
 log.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 base64.workspace = true
 lazy-regex.workspace = true
 arc-swap = { workspace = true }

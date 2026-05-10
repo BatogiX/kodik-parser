@@ -1,12 +1,13 @@
-use crate::{Anime, FetchAnimesResponse, FetchAnimesVars, GraphQLRequest, fetch_shiki_api_animes, parser};
+use crate::{FetchAnimesResponse, FetchAnimesVars, GraphQLRequest, Related};
 use kodik_utils::{Client, Error, GET as _, POST as _};
 use serde::Deserialize;
 
 const LIMIT: usize = 50;
 
-pub async fn fetch_franchise(client: &Client, url: &str) -> Result<Vec<Anime>, Error> {
-    const ANIMES_BY_FRANCHISE_QUERY: &str = "query($franchise: String!, $page: PositiveInt!, $limit: PositiveInt!) {
-  animes(franchise: $franchise, page: $page, limit: $limit) {
+pub async fn fetch_related(client: &Client, franchise: &str, domain: &str) -> Result<Related, Error> {
+    const ANIMES_BY_FRANCHISE_QUERY: &str = r"
+query($franchise: String!, $page: PositiveInt!, $limit: PositiveInt!) {
+  animes(franchise: $franchise, page: $page, limit: $limit, order: aired_on) {
     id
     name
     episodes
@@ -15,7 +16,6 @@ pub async fn fetch_franchise(client: &Client, url: &str) -> Result<Vec<Anime>, E
       relationKind
       anime {
         id
-        name
       }
     }
 
@@ -25,37 +25,43 @@ pub async fn fetch_franchise(client: &Client, url: &str) -> Result<Vec<Anime>, E
         name
       }
     }
+
+    airedOn {
+      date
+    }
   }
 }
 ";
 
-    let domain = kodik_utils::extract_domain(url)?;
     let graphql_url = format!("https://{domain}/api/graphql");
-    let id = parser::extract_id(url)?;
-    let franchise = fetch_shiki_api_animes(client, url).await?.franchise.unwrap();
+    let mut json = GraphQLRequest {
+        query: ANIMES_BY_FRANCHISE_QUERY,
+        variables: FetchAnimesVars::new(franchise),
+    };
 
-    let mut accum = vec![];
+    let mut franchise = Related::default();
     for page in 1.. {
-        let json = GraphQLRequest {
-            query: ANIMES_BY_FRANCHISE_QUERY,
-            variables: FetchAnimesVars::new(&franchise, page),
-        };
-        dbg!(&json);
-
+        json.variables.page = page;
         let mut resp: FetchAnimesResponse = client.post_json_as_json(&graphql_url, &json).await?;
 
+        for index in (0..resp.data.animes.len()).rev() {
+            if resp.data.animes[index].aired_on.date.is_none() {
+                resp.data.animes.remove(index);
+            }
+        }
+
         let len = resp.data.animes.len();
-        accum.append(&mut resp.data.animes);
+        franchise.animes.append(&mut resp.data.animes);
 
         if len < LIMIT {
             break;
         }
     }
 
-    Ok(accum)
+    Ok(franchise)
 }
 
-pub async fn get_not_anime_ids(client: &Client, neko_id: &str) -> Result<Option<Vec<usize>>, Error> {
+pub async fn fetch_not_anime_ids(client: &Client, neko_id: &str) -> Result<Option<Vec<usize>>, Error> {
     type Achievements = Vec<Achievement>;
 
     #[derive(Deserialize)]
@@ -75,7 +81,6 @@ pub async fn get_not_anime_ids(client: &Client, neko_id: &str) -> Result<Option<
 
     #[derive(Deserialize)]
     struct Filters {
-        pub franchise: String,
         pub not_anime_ids: Option<Vec<usize>>,
     }
 
@@ -97,7 +102,8 @@ mod tests {
     #[tokio::test]
     async fn fetch_franchise_test() {
         let client = Client::new();
-        let url = "https://shikimori.net/animes/33";
-        dbg!(fetch_franchise(&client, url).await.unwrap());
+        let franchise = "berserk";
+        let domain = "shikimori.net";
+        dbg!(fetch_related(&client, franchise, domain).await.unwrap());
     }
 }

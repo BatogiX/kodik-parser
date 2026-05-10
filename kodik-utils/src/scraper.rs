@@ -34,6 +34,17 @@ pub trait POST {
     where
         T: DeserializeOwned + Debug,
         J: Serialize + Sync + ?Sized;
+
+    /// Posts JSON data to the given URL returns the response body as a string.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] if:
+    /// - A network request fails.
+    /// - An invalid URL is provided (though `reqwest` usually handles this during `post`).
+    fn post_json_as_text<J>(&self, url: &str, json: &J) -> impl Future<Output = Result<String, Error>> + Send
+    where
+        J: Serialize + Sync + ?Sized;
 }
 
 pub trait GET {
@@ -79,7 +90,16 @@ impl POST for Client {
         log::info!("POST to {url}...");
         execute_json(self.post(url).json(json)).await
     }
+
+    async fn post_json_as_text<J>(&self, url: &str, json: &J) -> Result<String, Error>
+    where
+        J: Serialize + Sync + ?Sized,
+    {
+        log::info!("POST to {url}...");
+        execute_text(self.post(url).json(json)).await
+    }
 }
+
 impl GET for Client {
     async fn fetch_as_text(&self, url: &str) -> Result<String, crate::Error> {
         log::info!("GET to {url}...");
