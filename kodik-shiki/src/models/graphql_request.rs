@@ -99,7 +99,6 @@ pub struct Anime {
     pub episodes: usize,
     pub related: Vec<Relation>,
     pub user_rate: Option<UserRate>,
-    pub aired_on: AiredOn,
 }
 
 #[derive(Deserialize, Debug)]
@@ -137,9 +136,4 @@ pub struct UserRate {
 #[derive(Deserialize, Debug)]
 pub struct BasicAnime {
     pub id: String,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct AiredOn {
-    pub date: Option<String>,
 }

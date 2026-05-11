@@ -247,7 +247,7 @@ where
                 .await?
                 .context("there are no 'not anime ids (just log::warn)'")?;
 
-            related.filter_by_not_anime_ids(&not_anime_ids)?;
+            related.filter_by_not_anime_ids(not_anime_ids)?;
             related.sort_by_chrono();
 
             for anime in &related.animes {
