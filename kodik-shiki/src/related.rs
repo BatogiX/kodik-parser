@@ -1,56 +1,9 @@
-use crate::{FetchAnimesResponse, FetchAnimesVars, GraphQLRequest, Related};
-use kodik_utils::{Client, Error, GET as _, POST as _};
+use kodik_utils::{Client, Error, GET as _};
 use serde::Deserialize;
 use tokio::sync::OnceCell;
 
 const LIMIT: usize = 50;
 static ACHIEVEMENTS: OnceCell<Vec<Achievement>> = OnceCell::const_new();
-
-pub async fn fetch_related(client: &Client, franchise: &str, domain: &str) -> Result<Related, Error> {
-    const ANIMES_BY_FRANCHISE_QUERY: &str = r#"
-query($franchise: String!, $page: PositiveInt!, $limit: PositiveInt!) {
-  animes(franchise: $franchise, page: $page, limit: $limit, order: aired_on, status: "!anons") {
-    id
-    name
-    episodes
-
-    related {
-      relationKind
-      anime {
-        id
-      }
-    }
-
-    userRate {
-      status
-      anime {
-        name
-      }
-    }
-  }
-}
-"#;
-
-    let graphql_url = format!("https://{domain}/api/graphql");
-    let mut json = GraphQLRequest {
-        query: ANIMES_BY_FRANCHISE_QUERY,
-        variables: FetchAnimesVars::new(franchise),
-    };
-
-    let mut franchise = Related::default();
-    for page in 1.. {
-        json.variables.page = page;
-        let mut resp: FetchAnimesResponse = client.post_json_as_json(&graphql_url, &json).await?;
-        let len = resp.data.animes.len();
-        franchise.animes.append(&mut resp.data.animes);
-
-        if len < LIMIT {
-            break;
-        }
-    }
-
-    Ok(franchise)
-}
 
 pub async fn fetch_not_anime_ids(client: &Client, neko_id: &str) -> Result<Option<&'static [usize]>, Error> {
     const ACHIEVEMENTS_URL: &str =
@@ -95,13 +48,5 @@ struct Filters {
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
 mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn fetch_franchise_test() {
-        let client = Client::new();
-        let franchise = "berserk";
-        let domain = "shikimori.net";
-        dbg!(fetch_related(&client, franchise, domain).await.unwrap());
-    }
+    
 }

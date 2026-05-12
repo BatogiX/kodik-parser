@@ -1,19 +1,5 @@
-use crate::{KodikApiResponse, ShikiApiAnimes, VideoResult, parser, scraper};
+use crate::{ShikiApiAnimes, VideoResult, parser};
 use kodik_utils::{Client, Error, GET};
-
-/// Retrieves video results for an anime from Kodik.
-///
-/// # Errors
-///
-/// Returns `KodikError` if:
-/// - The anime ID cannot be extracted from the URL
-/// - The Kodik API request fails
-pub async fn resolve_anime(client: &Client, url: &str) -> Result<KodikApiResponse, Error> {
-    let id = parser::extract_id(url)?;
-    let search_response: KodikApiResponse = scraper::get_kodik_videos(client, id).await?;
-
-    Ok(search_response)
-}
 
 pub struct VideoMetaData {
     video: VideoResult,

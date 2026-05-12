@@ -1004,7 +1004,12 @@ dependencies = [
 name = "kodik-mpv-plugin"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "kodik-parser",
+ "kodik-shiki",
  "mpv-client",
+ "reqwest",
+ "tokio",
 ]
 
 [[package]]

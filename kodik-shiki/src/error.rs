@@ -8,6 +8,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(ThisError, Debug)]
 #[non_exhaustive]
 pub enum Error {
+    #[error(transparent)]
+    KodikUtils(#[from] kodik_utils::Error),
+
     #[error("invalid anime id `{value}`")]
     InvalidAnimeId {
         value: String,

@@ -22,14 +22,6 @@ pub struct Config {
     #[arg(value_name = "URL", required = true)]
     pub urls: Vec<Url>,
 
-    /// Output sequentially; disables parallelism
-    #[arg(short = 'l', long)]
-    pub lazy: bool,
-
-    /// Media player to open URLs with (implies --lazy)
-    #[arg(short = 'p', long, value_name = "MEDIA-PLAYER")]
-    pub player: Option<String>,
-
     /// Use verbose output (-vv very verbose)
     #[arg(short = 'v', long, action = ArgAction::Count, default_value = "0")]
     pub verbose: u8,
@@ -42,6 +34,10 @@ pub struct Config {
     #[arg(short = 'q', long, value_name = "QUALITY", default_value = "720")]
     pub quality: Quality,
 
+    /// Netscape formatted file to read cookies from
+    #[arg(long, value_name = "FILE")]
+    pub cookies: Option<String>,
+
     /// Specify translation title
     #[arg(long, value_name = "TITLE")]
     pub translation_title: Option<String>,
@@ -49,10 +45,6 @@ pub struct Config {
     /// Specify translation type
     #[arg(long, value_name = "TYPE")]
     pub translation_type: Option<TranslationTypeArg>,
-
-    /// Netscape formatted file to read cookies from
-    #[arg(long, value_name = "FILE")]
-    pub cookies: Option<String>,
 
     /// Expand a media database URL into all related URLs
     #[arg(long, value_name = "MODE")]
@@ -62,14 +54,6 @@ pub struct Config {
 impl Config {
     pub fn build(args: Vec<String>) -> Result<Self, clap::Error> {
         Self::try_parse_from(args)
-    }
-
-    pub const fn execution_mode(&self) -> ExecutionMode {
-        if self.lazy || self.player.is_some() {
-            ExecutionMode::Lazy
-        } else {
-            ExecutionMode::Parallel
-        }
     }
 
     pub const fn level_filter(&self) -> LevelFilter {
@@ -127,13 +111,6 @@ impl Config {
 
         Ok(jar)
     }
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-pub enum ExecutionMode {
-    #[default]
-    Parallel,
-    Lazy,
 }
 
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]

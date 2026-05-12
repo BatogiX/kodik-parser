@@ -36,10 +36,17 @@ pub enum VideoResult {
 //     // Ok(())
 // }
 
-pub async fn get_kodik_videos(client: &Client, id: &str) -> Result<KodikApiResponse, Error> {
+/// Retrieves video results for an anime from Kodik.
+///
+/// # Errors
+///
+/// Returns `Error` if:
+/// - The Kodik API request fails
+pub async fn fetch_kodik_videos(client: &Client, shikimori_id: &str) -> Result<KodikApiResponse, Error> {
     let token = env!("KODIK_TOKEN");
-    let url =
-        format!("https://kodik-api.com/search?token={token}&shikimori_id={id}&with_seasons=true&with_episodes=true");
+    let url = format!(
+        "https://kodik-api.com/search?token={token}&shikimori_id={shikimori_id}&with_seasons=true&with_episodes=true"
+    );
 
     let search_response: KodikApiResponse = client.fetch_as_json(&url).await?;
 
