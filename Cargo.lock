@@ -1054,10 +1054,13 @@ name = "kodik-mpv-plugin"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64",
  "kodik-parser",
  "kodik-shiki",
  "mpv-client",
  "reqwest",
+ "serde",
+ "serde_json",
  "tokio",
 ]
 

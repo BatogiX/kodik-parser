@@ -181,6 +181,7 @@ pub enum RelationKind {
 pub struct UserRate {
     pub status: String,
     pub anime: BasicAnime,
+    pub episodes: usize,
 }
 
 #[derive(Deserialize, Debug)]

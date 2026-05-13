@@ -2,7 +2,6 @@ use kodik_utils::{Client, Error, GET as _};
 use serde::Deserialize;
 use tokio::sync::OnceCell;
 
-const LIMIT: usize = 50;
 static ACHIEVEMENTS: OnceCell<Vec<Achievement>> = OnceCell::const_new();
 
 pub async fn fetch_not_anime_ids(client: &Client, neko_id: &str) -> Result<Option<&'static [usize]>, Error> {
@@ -47,6 +46,4 @@ struct Filters {
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
-mod tests {
-    
-}
+mod tests {}

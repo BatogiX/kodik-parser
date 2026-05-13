@@ -2,14 +2,14 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct ShikiApiAnimes {
-    // id: usize,
+    pub id: usize,
     pub name: String,
     // russian: String,
     // url: String,
     // kind: String,
     // score: String,
     // status: String,
-    // episodes: usize,
+    pub episodes: usize,
     // episodes_aired: usize,
     // aired_on: String,
     // released_on: String,
@@ -21,4 +21,11 @@ pub struct ShikiApiAnimes {
 #[derive(Debug, Deserialize)]
 pub struct UserRate {
     pub episodes: usize,
+}
+
+impl UserRate {
+    #[must_use] 
+    pub const fn new(episodes: usize) -> Self {
+        Self { episodes }
+    }
 }
