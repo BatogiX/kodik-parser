@@ -7,5 +7,5 @@ mod scraper;
 mod state;
 
 pub use parser::parse;
-pub use scraper::{Link, Links, Response};
+pub use scraper::{Link, Links};
 pub use state::KODIK_STATE;

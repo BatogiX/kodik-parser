@@ -6,5 +6,5 @@ mod ua;
 pub use error::Error;
 pub use re::extract_domain;
 pub use reqwest::Client;
-pub use scraper::{GET, POST};
+pub use scraper::{GET, PATCH, POST};
 pub use ua::random_user_agent;

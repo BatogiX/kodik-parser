@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Display};
+use std::{collections::BTreeMap, fmt::Display, str::FromStr};
 
 use kodik_utils::Error;
 use lazy_regex::Regex;
@@ -55,7 +55,7 @@ pub struct Translation {
     pub r#type: TranslationType,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TranslationType {
     Voice,
@@ -67,6 +67,18 @@ impl Display for TranslationType {
         match self {
             Self::Voice => write!(f, "voice"),
             Self::Subtitles => write!(f, "subtitles"),
+        }
+    }
+}
+
+impl FromStr for TranslationType {
+    type Err = crate::Error;
+
+    fn from_str(value: &str) -> Result<Self, crate::Error> {
+        match value.trim() {
+            "voice" => Ok(Self::Voice),
+            "subtitles" => Ok(Self::Subtitles),
+            value => Err(crate::Error::InvalidTranslationType(value.to_owned())),
         }
     }
 }

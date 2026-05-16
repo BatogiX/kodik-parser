@@ -1,5 +1,7 @@
 use serde::Deserialize;
 
+use crate::{UserRate, models::shared::AnimeStatus};
+
 #[derive(Debug, Deserialize)]
 pub struct ShikiApiAnimes {
     pub id: usize,
@@ -8,24 +10,12 @@ pub struct ShikiApiAnimes {
     // url: String,
     // kind: String,
     // score: String,
-    // status: String,
+    pub status: AnimeStatus,
     pub episodes: usize,
-    // episodes_aired: usize,
+    pub episodes_aired: usize,
     // aired_on: String,
     // released_on: String,
     // rating: String,
     pub franchise: Option<String>,
     pub user_rate: Option<UserRate>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct UserRate {
-    pub episodes: usize,
-}
-
-impl UserRate {
-    #[must_use] 
-    pub const fn new(episodes: usize) -> Self {
-        Self { episodes }
-    }
 }

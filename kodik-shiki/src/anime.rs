@@ -1,11 +1,5 @@
-use crate::{ShikiApiAnimes, VideoResult, parser};
+use crate::{ShikiApiAnimes, parser};
 use kodik_utils::{Client, Error, GET};
-
-pub struct VideoMetaData {
-    video: VideoResult,
-    name: String,
-    episodes: Vec<usize>,
-}
 
 pub async fn fetch_user_rate(client: &Client, url: &str) -> Result<Option<usize>, Error> {
     let domain = kodik_utils::extract_domain(url)?;

@@ -1,7 +1,8 @@
-use crate::{Error, Result};
+use crate::{Result, UserRate, models::shared::AnimeStatus};
 use kodik_utils::{Client, POST as _};
 use serde::{Deserialize, Serialize};
 const LIMIT: usize = 50;
+use crate::models::shared::deserialize_usize_from_string_or_number;
 
 #[derive(Debug, Serialize)]
 pub struct GraphQLRequest<V> {
@@ -10,25 +11,28 @@ pub struct GraphQLRequest<V> {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FetchAnimesVars<'a> {
     pub franchise: &'a str,
     pub page: usize,
     pub limit: usize,
+    pub exclude_ids: &'a str,
 }
 
 impl<'a> FetchAnimesVars<'a> {
     #[must_use]
-    pub const fn new(franchise: &'a str) -> Self {
+    pub const fn new(franchise: &'a str, exclude_ids: &'a str) -> Self {
         Self {
             franchise,
             page: 1,
             limit: LIMIT,
+            exclude_ids,
         }
     }
 }
 
 #[derive(Deserialize, Debug)]
-pub struct FetchAnimesResponse {
+struct FetchAnimesResponse {
     pub data: Related,
 }
 
@@ -38,13 +42,20 @@ pub struct Related {
 }
 
 impl Related {
-    pub async fn fetch_by_franchise(client: &Client, franchise: &str, domain: &str) -> Result<Self> {
+    pub async fn fetch_by_franchise(
+        client: &Client,
+        franchise: &str,
+        domain: &str,
+        not_anime_ids: &[usize],
+    ) -> Result<Self> {
         const ANIMES_BY_FRANCHISE_QUERY: &str = r#"
-    query($franchise: String!, $page: PositiveInt!, $limit: PositiveInt!) {
-      animes(franchise: $franchise, page: $page, limit: $limit, order: aired_on, status: "!anons") {
+    query($franchise: String!, $page: PositiveInt!, $limit: PositiveInt!, $excludeIds: String!) {
+      animes(franchise: $franchise, page: $page, limit: $limit, excludeIds: $excludeIds, order: aired_on, status: "!anons") {
         id
         name
+        status
         episodes
+        episodesAired
 
         related {
           relationKind
@@ -54,19 +65,25 @@ impl Related {
         }
 
         userRate {
+          episodes
+          id
+          rewatches
           status
-          anime {
-            id
-          }
         }
       }
     }
     "#;
 
+        let exclude_ids = not_anime_ids
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect::<Vec<_>>()
+            .join(",");
+
         let graphql_url = format!("https://{domain}/api/graphql");
         let mut json = GraphQLRequest {
             query: ANIMES_BY_FRANCHISE_QUERY,
-            variables: FetchAnimesVars::new(franchise),
+            variables: FetchAnimesVars::new(franchise, &exclude_ids),
         };
 
         let mut related = Self::default();
@@ -84,29 +101,7 @@ impl Related {
         Ok(related)
     }
 
-    #[must_use]
-    pub fn filter_by_not_anime_ids(&mut self, not_anime_ids: &[usize]) -> Result<&mut Self> {
-        for index in (0..self.animes.len()).rev() {
-            let anime_id: usize = match self.animes[index].id.parse() {
-                Ok(anime_id) => anime_id,
-                Err(source) => {
-                    return Err(Error::InvalidAnimeId {
-                        value: self.animes[index].id.clone(),
-                        source,
-                    });
-                }
-            };
-
-            if not_anime_ids.contains(&anime_id) {
-                self.animes.remove(index);
-            }
-        }
-
-        Ok(self)
-    }
-
-    #[must_use]
-    pub fn sort_by_chrono(&mut self) -> &mut Self {
+    pub fn sort_by_chrono(&mut self) {
         self.animes.reverse();
 
         let mut current_index = 0;
@@ -136,17 +131,18 @@ impl Related {
                 current_index += 1;
             }
         }
-
-        self
     }
 }
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Anime {
-    pub id: String,
+    #[serde(deserialize_with = "deserialize_usize_from_string_or_number")]
+    pub id: usize,
     pub name: String,
+    pub status: AnimeStatus,
     pub episodes: usize,
+    pub episodes_aired: usize,
     pub related: Vec<Relation>,
     pub user_rate: Option<UserRate>,
 }
@@ -178,15 +174,9 @@ pub enum RelationKind {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct UserRate {
-    pub status: String,
-    pub anime: BasicAnime,
-    pub episodes: usize,
-}
-
-#[derive(Deserialize, Debug)]
 pub struct BasicAnime {
-    pub id: String,
+    #[serde(deserialize_with = "deserialize_usize_from_string_or_number")]
+    pub id: usize,
 }
 
 #[cfg(test)]
@@ -195,10 +185,14 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn fetch_franchise_test() {
+    async fn fetch_related_test() {
         let client = Client::new();
         let franchise = "berserk";
-        let domain = "shikimori.net";
-        dbg!(Related::fetch_by_franchise(&client, franchise, domain).await.unwrap());
+        let domain = "shikimori.io";
+        dbg!(
+            Related::fetch_by_franchise(&client, franchise, domain, &[])
+                .await
+                .unwrap()
+        );
     }
 }

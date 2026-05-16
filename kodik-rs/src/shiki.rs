@@ -28,20 +28,22 @@ pub async fn resolve_shiki(client: &Client, url: &Url, config: &Config, jar: &Ja
             };
 
             let domain = url.domain().context("url have no domain")?;
-            let not_anime_ids = kodik_shiki::fetch_not_anime_ids(client, franchise)
-                .await?
-                .context("there are no 'not anime ids (just log::warn)'")?;
 
-            let mut related = kodik_shiki::Related::fetch_by_franchise(client, franchise, domain).await?;
+            let mut related = match mode {
+                RelatedMode::All => kodik_shiki::Related::fetch_by_franchise(client, franchise, domain, &[]).await?,
+                RelatedMode::Essential => {
+                    let not_anime_ids = kodik_shiki::fetch_not_anime_ids(client, franchise)
+                        .await?
+                        .context("there are no 'not anime ids (just log::warn)'")?;
 
-            let animes = match mode {
-                RelatedMode::All => &related.sort_by_chrono().animes,
-                RelatedMode::Essential => &related.filter_by_not_anime_ids(not_anime_ids)?.sort_by_chrono().animes,
+                    kodik_shiki::Related::fetch_by_franchise(client, franchise, domain, not_anime_ids).await?
+                }
             };
+            related.sort_by_chrono();
 
             let mut links = Vec::new();
-            for anime in animes {
-                links.append(&mut shiki_helper(client, url, config, anime.id.parse()?, Some(shiki_api_animes)).await?);
+            for anime in &related.animes {
+                links.append(&mut shiki_helper(client, url, config, anime.id, Some(shiki_api_animes)).await?);
             }
             return Ok(links);
         }

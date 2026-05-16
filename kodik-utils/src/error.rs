@@ -8,15 +8,15 @@ use thiserror::Error as ThisError;
 #[non_exhaustive]
 pub enum Error {
     /// Reqwest HTTP client error.
-    #[error("{0}")]
+    #[error(transparent)]
     Reqwest(#[from] reqwest::Error),
 
     /// Base64 decoding error.
-    #[error("{0}")]
+    #[error(transparent)]
     Decode(#[from] base64::DecodeError),
 
     /// UTF-8 conversion error.
-    #[error("{0}")]
+    #[error(transparent)]
     FromUtf8(#[from] string::FromUtf8Error),
 
     /// Regex matching error.
@@ -28,16 +28,16 @@ pub enum Error {
     LinkCannotBeDecoded(String),
 
     /// Invaliad header value
-    #[error("{0}")]
+    #[error(transparent)]
     InvalidHeaderValue(#[from] header::InvalidHeaderValue),
 
     /// Not found error.
     #[error("{0}")]
     NotFound(String),
 
-    #[error("{0}")]
+    #[error(transparent)]
     Regex(#[from] lazy_regex::regex::Error),
 
-    #[error("{0}")]
+    #[error(transparent)]
     SerdeYaml(#[from] serde_saphyr::Error),
 }

@@ -1,5 +1,6 @@
-use crate::decoder;
-use crate::{KODIK_STATE, Response};
+use crate::KODIK_STATE;
+use crate::scraper::Response;
+use crate::{Links, decoder};
 use kodik_utils::{Client, Error, GET, POST};
 use serde::Serialize;
 
@@ -46,7 +47,7 @@ use serde::Serialize;
 /// println!("Link with 720p quality is: {link_720}");
 /// # }
 /// ```
-pub async fn parse(client: &Client, url: &str) -> Result<Response, Error> {
+pub async fn parse(client: &Client, url: &str) -> Result<Links, Error> {
     let domain = kodik_utils::extract_domain(url)?;
     let mut body = String::new();
 
@@ -69,7 +70,7 @@ pub async fn parse(client: &Client, url: &str) -> Result<Response, Error> {
                 .await
             {
                 kodik_response.decode_links()?;
-                return Ok(kodik_response);
+                return Ok(kodik_response.links);
             }
             KODIK_STATE.clear_endpoint();
             continue;

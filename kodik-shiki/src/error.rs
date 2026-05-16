@@ -17,4 +17,7 @@ pub enum Error {
         #[source]
         source: ParseIntError,
     },
+
+    #[error("invalid `translation_type`: `{0}`, expected voice or subtitles")]
+    InvalidTranslationType(String),
 }

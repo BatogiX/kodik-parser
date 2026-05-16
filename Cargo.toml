@@ -31,6 +31,7 @@ thiserror = "2.0"
 anyhow = "1.0"
 mpv-client = { path = '..\mpv-client\mpv-client' }
 futures = "0.3"
+env_logger = "0.11"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

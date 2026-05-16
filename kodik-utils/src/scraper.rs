@@ -72,6 +72,13 @@ pub trait GET {
     ) -> impl Future<Output = Result<T, crate::Error>> + Send;
 }
 
+pub trait PATCH {
+    fn patch_json_as_json<T, J>(&self, url: &str, json: &J) -> impl Future<Output = Result<T, Error>> + Send
+    where
+        T: DeserializeOwned + Debug,
+        J: Serialize + Sync + ?Sized;
+}
+
 impl POST for Client {
     async fn post_form_as_json<T, F>(&self, url: &str, form: &F) -> Result<T, crate::Error>
     where
@@ -109,6 +116,17 @@ impl GET for Client {
     async fn fetch_as_json<T: DeserializeOwned + Debug>(&self, url: &str) -> Result<T, crate::Error> {
         log::info!("GET to {url}...");
         execute_json(self.get(url)).await
+    }
+}
+
+impl PATCH for Client {
+    async fn patch_json_as_json<T, J>(&self, url: &str, json: &J) -> Result<T, Error>
+    where
+        T: DeserializeOwned + Debug,
+        J: Serialize + Sync + ?Sized,
+    {
+        log::info!("PATCH to {url}...");
+        execute_json(self.patch(url).json(json)).await
     }
 }
 

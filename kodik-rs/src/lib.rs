@@ -51,11 +51,11 @@ async fn run_impl(args: Vec<String>) -> Result<()> {
         let urls = resolve_url(client, url, config, &jar).await?;
 
         let futures = urls.into_iter().map(|url| async move {
-            let kodik_response = kodik_parser::parse(client, url.as_str()).await?;
+            let links = kodik_parser::parse(client, url.as_str()).await?;
             let links = match config.quality {
-                Quality::P360 => kodik_response.links.quality_360,
-                Quality::P480 => kodik_response.links.quality_480,
-                Quality::P720 => kodik_response.links.quality_720,
+                Quality::P360 => links.quality_360,
+                Quality::P480 => links.quality_480,
+                Quality::P720 => links.quality_720,
             };
 
             links

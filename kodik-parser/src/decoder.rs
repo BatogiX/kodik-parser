@@ -16,14 +16,23 @@ impl Response {
 
         for link in &mut self.links.quality_360 {
             link.decode_src()?;
+            if let Some(index) = link.src.rfind(".mp4") {
+                link.src.replace_range(index - 3..index, "360");
+            }
         }
 
         for link in &mut self.links.quality_480 {
             link.decode_src()?;
+            if let Some(index) = link.src.rfind(".mp4") {
+                link.src.replace_range(index - 3..index, "480");
+            }
         }
 
         for link in &mut self.links.quality_720 {
             link.decode_src()?;
+            if let Some(index) = link.src.rfind(".mp4") {
+                link.src.replace_range(index - 3..index, "720");
+            }
         }
 
         log::trace!("Decoded links: {:#?}", self.links);
