@@ -1,8 +1,21 @@
 use crate::KODIK_STATE;
+use crate::decoder;
 use crate::scraper::Response;
-use crate::{Links, decoder};
 use kodik_utils::{Client, Error, GET, POST};
 use serde::Serialize;
+
+#[derive(Debug)]
+pub struct Links {
+    pub p720: String,
+    pub p480: String,
+    pub p360: String,
+}
+
+impl Links {
+    pub const fn new(p720: String, p480: String, p360: String) -> Self {
+        Self { p720, p480, p360 }
+    }
+}
 
 /// Parses a Kodik player page asynchronously and returns structured video stream information.
 ///
@@ -70,11 +83,17 @@ pub async fn parse(client: &Client, url: &str) -> Result<Links, Error> {
                 .await
             {
                 kodik_response.decode_links()?;
-                return Ok(kodik_response.links);
+                return Ok(Links::new(
+                    kodik_response.links.quality_720.remove(0).src,
+                    kodik_response.links.quality_480.remove(0).src,
+                    kodik_response.links.quality_360.remove(0).src,
+                ));
             }
+
             KODIK_STATE.clear_endpoint();
             continue;
         }
+
         if KODIK_STATE.try_begin_update() {
             log::warn!("Endpoint not found in cache, updating...");
             let fetched;
